@@ -1,16 +1,27 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Users } from "lucide-react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { LogIn, LogOut, Users } from "lucide-react";
 import { useToast } from "@/components/ui/toast";
-import { switchUser } from "@/lib/actions/auth";
+import { logout, switchUser } from "@/lib/actions/auth";
 
 type Profile = { id: string; name: string; role: string };
 
-export function RoleSwitcher({ profiles, currentId }: { profiles: Profile[]; currentId: string }) {
+export function RoleSwitcher({
+  profiles,
+  currentId,
+  authenticated,
+}: {
+  profiles: Profile[];
+  currentId: string;
+  authenticated: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const { show } = useToast();
+  const router = useRouter();
   const current = profiles.find((p) => p.id === currentId);
 
   return (
@@ -24,14 +35,17 @@ export function RoleSwitcher({ profiles, currentId }: { profiles: Profile[]; cur
       >
         <Users size={14} strokeWidth={1.6} />
         {current?.name ?? "Profil"}
-        <span className="text-ink-muted">· démo</span>
+        <span className="text-ink-muted">· {authenticated ? "session" : "démo"}</span>
       </button>
       {open && (
         <ul
           role="menu"
-          aria-label="Profils de démonstration"
-          className="absolute right-0 top-full mt-1 z-40 min-w-[240px] bg-surface border border-line-soft rounded-lg shadow-fab-lg py-1 max-h-[60vh] overflow-y-auto"
+          aria-label="Profils"
+          className="absolute right-0 top-full mt-1 z-40 min-w-[260px] bg-surface border border-line-soft rounded-lg shadow-fab-lg py-1 max-h-[60vh] overflow-y-auto"
         >
+          <li className="px-3 py-1.5 text-[10.5px] font-semibold uppercase tracking-eyebrow text-ink-muted border-b border-line-soft">
+            Démo · changer de profil
+          </li>
           {profiles.map((p) => {
             const active = p.id === currentId;
             return (
@@ -63,6 +77,42 @@ export function RoleSwitcher({ profiles, currentId }: { profiles: Profile[]; cur
               </li>
             );
           })}
+          <li role="none" className="border-t border-line-soft mt-1 pt-1">
+            <Link
+              href="/auth/login"
+              role="menuitem"
+              className="w-full text-left px-3 py-2 text-[13px] text-ink hover:bg-surface-alt flex items-center gap-2"
+              onClick={() => setOpen(false)}
+            >
+              <LogIn size={14} strokeWidth={1.6} />
+              Se connecter avec un mot de passe
+            </Link>
+          </li>
+          {authenticated && (
+            <li role="none">
+              <button
+                role="menuitem"
+                type="button"
+                disabled={pending}
+                onClick={() =>
+                  start(async () => {
+                    try {
+                      await logout();
+                      show({ tone: "info", title: "Déconnecté·e" });
+                      setOpen(false);
+                      router.push("/");
+                    } catch (err) {
+                      show({ tone: "danger", title: "Erreur", desc: String(err instanceof Error ? err.message : err) });
+                    }
+                  })
+                }
+                className="w-full text-left px-3 py-2 text-[13px] text-danger hover:bg-surface-alt flex items-center gap-2"
+              >
+                <LogOut size={14} strokeWidth={1.6} />
+                Se déconnecter
+              </button>
+            </li>
+          )}
         </ul>
       )}
     </div>

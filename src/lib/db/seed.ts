@@ -1,12 +1,20 @@
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import path from "node:path";
+import bcrypt from "bcryptjs";
 import { db, schema } from "./client";
 
 migrate(db, { migrationsFolder: path.resolve(process.cwd(), "drizzle") });
 
+// Tous les utilisateurs seedés partagent le mot de passe `trizac`
+// (uniquement pour la démo — à régénérer en production).
+const SEED_PWD_HASH = bcrypt.hashSync("trizac", 10);
+
 // Idempotent : on vide les tables avant d'insérer.
 const TABLES = [
   schema.auditLog,
+  schema.notifications,
+  schema.moderationFlags,
+  schema.synthesises,
   schema.reservations,
   schema.equipements,
   schema.petitesAnnonces,
@@ -28,29 +36,38 @@ const TABLES = [
   schema.signalementHistory,
   schema.signalements,
   schema.consents,
+  schema.magicTokens,
+  schema.sessions,
   schema.users,
 ];
 for (const t of TABLES) db.delete(t).run();
 
 // ── Users ────────────────────────────────────────────────────────────
+const seedUsers = [
+  { id: "u1", email: "camille@trizac.fr", name: "Camille Vidal", role: "habitant" as const },
+  { id: "u2", email: "jean@trizac.fr", name: "Jean Marin", role: "habitant" as const },
+  { id: "u3", email: "marie@trizac.fr", name: "Marie Dupont", role: "habitant" as const },
+  { id: "u4", email: "paul@trizac.fr", name: "Paul Roux", role: "habitant" as const },
+  { id: "u5", email: "sophie@trizac.fr", name: "Sophie Lemaire", role: "habitant" as const },
+  { id: "u6", email: "helene@trizac.fr", name: "Hélène Pinson", role: "habitant" as const },
+  { id: "u7", email: "antoine@trizac.fr", name: "Antoine Faure", role: "habitant" as const },
+  { id: "u8", email: "mireille@trizac.fr", name: "Mireille Thévenin", role: "habitant" as const },
+  { id: "u9", email: "yvette@trizac.fr", name: "Yvette Granger", role: "habitant" as const },
+  { id: "u10", email: "romain@trizac.fr", name: "Romain Boudet", role: "habitant" as const },
+  { id: "u11", email: "nicole@trizac.fr", name: "Nicole Faure", role: "habitant" as const },
+  { id: "u12", email: "lucas@trizac.fr", name: "Lucas Demeure", role: "habitant" as const },
+  { id: "agent1", email: "voirie@trizac.fr", name: "Agent voirie", role: "agent" as const },
+  { id: "ref1", email: "comite@trizac.fr", name: "Comité des fêtes", role: "referent" as const },
+  { id: "maire", email: "maire@trizac.fr", name: "Maire de Trizac", role: "maire" as const },
+];
 db.insert(schema.users)
-  .values([
-    { id: "u1", email: "camille@trizac.fr", name: "Camille Vidal", role: "habitant" },
-    { id: "u2", email: "jean@trizac.fr", name: "Jean Marin", role: "habitant" },
-    { id: "u3", email: "marie@trizac.fr", name: "Marie Dupont", role: "habitant" },
-    { id: "u4", email: "paul@trizac.fr", name: "Paul Roux", role: "habitant" },
-    { id: "u5", email: "sophie@trizac.fr", name: "Sophie Lemaire", role: "habitant" },
-    { id: "u6", email: "helene@trizac.fr", name: "Hélène Pinson", role: "habitant" },
-    { id: "u7", email: "antoine@trizac.fr", name: "Antoine Faure", role: "habitant" },
-    { id: "u8", email: "mireille@trizac.fr", name: "Mireille Thévenin", role: "habitant" },
-    { id: "u9", email: "yvette@trizac.fr", name: "Yvette Granger", role: "habitant" },
-    { id: "u10", email: "romain@trizac.fr", name: "Romain Boudet", role: "habitant" },
-    { id: "u11", email: "nicole@trizac.fr", name: "Nicole Faure", role: "habitant" },
-    { id: "u12", email: "lucas@trizac.fr", name: "Lucas Demeure", role: "habitant" },
-    { id: "agent1", email: "voirie@trizac.fr", name: "Agent voirie", role: "agent" },
-    { id: "ref1", email: "comite@trizac.fr", name: "Comité des fêtes", role: "referent" },
-    { id: "maire", email: "maire@trizac.fr", name: "Maire de Trizac", role: "maire" },
-  ])
+  .values(
+    seedUsers.map((u) => ({
+      ...u,
+      passwordHash: SEED_PWD_HASH,
+      emailVerifiedAt: new Date(),
+    })),
+  )
   .run();
 
 // ── Pôle 3 : Signalements ────────────────────────────────────────────

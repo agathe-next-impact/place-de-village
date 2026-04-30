@@ -22,6 +22,44 @@ export const users = sqliteTable("users", {
   role: text("role", { enum: ["habitant", "agent", "referent", "maire"] })
     .notNull()
     .default("habitant"),
+  passwordHash: text("password_hash"),
+  emailVerifiedAt: integer("email_verified_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+/**
+ * Sessions persistées : opaque tokens en cookie HttpOnly SameSite=Lax,
+ * rotation à chaque login, suppression au logout, expiration glissante 30 j.
+ */
+export const sessions = sqliteTable(
+  "sessions",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    lastSeenAt: integer("last_seen_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    userAgent: text("user_agent"),
+  },
+  (t) => ({
+    userIdx: index("sessions_user_idx").on(t.userId),
+  }),
+);
+
+/** Tokens de connexion par email (magic link). Usage unique, expirent en 15 min. */
+export const magicTokens = sqliteTable("magic_tokens", {
+  token: text("token").primaryKey(),
+  email: text("email").notNull(),
+  expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+  consumedAt: integer("consumed_at", { mode: "timestamp" }),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),

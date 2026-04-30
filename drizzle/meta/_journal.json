@@ -15,6 +15,13 @@
       "when": 1777546285593,
       "tag": "0001_conscious_layla_miller",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1777547303946,
+      "tag": "0002_bitter_rocket_raccoon",
+      "breakpoints": true
     }
   ]
 }

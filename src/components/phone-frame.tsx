@@ -4,16 +4,22 @@
 
 import Link from "next/link";
 import { listAllUsers, getCurrentUserPub } from "@/lib/queries";
+import { isAuthenticated } from "@/lib/auth";
 import { RoleSwitcher } from "@/components/interactive/role-switcher";
 
 export async function PhoneFrame({ children }: { children: React.ReactNode }) {
-  const [users, me] = await Promise.all([listAllUsers(), getCurrentUserPub()]);
+  const [users, me, authenticated] = await Promise.all([
+    listAllUsers(),
+    getCurrentUserPub(),
+    isAuthenticated(),
+  ]);
   return (
     <div className="min-h-screen w-full bg-bg flex flex-col items-center justify-center md:p-8 gap-3">
       <div className="w-full max-w-[420px] flex justify-end px-2">
         <RoleSwitcher
           profiles={users.map((u) => ({ id: u.id, name: u.name, role: u.role }))}
           currentId={me.id}
+          authenticated={authenticated}
         />
       </div>
       <div
