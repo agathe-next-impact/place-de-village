@@ -2,6 +2,7 @@ import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import path from "node:path";
 import bcrypt from "bcryptjs";
 import { db, schema } from "./client";
+import { reindexAll } from "../search/reindex";
 
 migrate(db, { migrationsFolder: path.resolve(process.cwd(), "drizzle") });
 
@@ -271,5 +272,8 @@ db.insert(schema.reservations)
     { id: "r3", equipementId: "eq1", userId: "u7", userName: "Antoine F.", startIso: "2026-12-12", endIso: "2026-12-12", motif: "Repas associatif", statut: "en-attente" },
   ])
   .run();
+
+// Indexation full-text (SQLite FTS5)
+reindexAll();
 
 console.log("✓ seed completed");

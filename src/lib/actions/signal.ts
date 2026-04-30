@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db, schema } from "@/lib/db/client";
 import { getCurrentUser } from "@/lib/auth";
 import { notify } from "@/lib/actions/notifications";
+import { indexEntity } from "@/lib/search";
 
 const NewSignalement = z.object({
   type: z.string().min(1),
@@ -74,6 +75,14 @@ export async function createSignalement(input: z.infer<typeof NewSignalement>) {
       details: `${data.type} · ${data.loc}`,
     })
     .run();
+  indexEntity({
+    entityType: "signalement",
+    entityId: id,
+    href: `/signalements/${id}`,
+    title: data.titre,
+    body: [data.loc, data.description].filter(Boolean).join("\n"),
+    themes: data.type,
+  });
 
   revalidatePath("/", "layout");
   return { id, duplicates: candidates };

@@ -17,6 +17,8 @@ const ROUTES = [
   { path: "/petites-annonces", expect: "Petites annonces" },
   { path: "/conseil-municipal", expect: "Conseil municipal" },
   { path: "/notifications", expect: "Notifications" },
+  { path: "/recherche", expect: "Rechercher" },
+  { path: "/recherche?q=marché", expect: "Marché de producteurs" },
   { path: "/mairie", expect: "Pulsation de Trizac" },
   { path: "/mairie/journal", expect: "Journal des décisions" },
   { path: "/mairie/reservations", expect: "Réservations à valider" },

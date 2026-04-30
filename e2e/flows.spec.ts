@@ -100,6 +100,30 @@ test.describe("Magic link", () => {
   });
 });
 
+test.describe("Recherche full-text", () => {
+  test("trouve les contenus seedés et indexe les nouveaux à la volée", async ({
+    page,
+  }) => {
+    // Recherche initiale sur le contenu seedé
+    await page.goto("/recherche?q=marché");
+    await expect(page.getByText("Marché de producteurs").first()).toBeVisible();
+
+    // Une nouvelle idée publiée doit être indexée et trouvable
+    await login(page, "camille@trizac.fr");
+    await page.goto("/agora");
+    await page.getByRole("button", { name: "Nouvelle idée" }).click();
+    const uniq = `Aire de jeux verger ${Date.now()}`;
+    await page.getByLabel("Votre idée").fill(uniq);
+    const publish = page.getByRole("button", { name: "Publier" });
+    await expect(publish).toBeEnabled();
+    await publish.click();
+    await expect(page.getByText("Idée publiée")).toBeVisible({ timeout: 10_000 });
+
+    await page.goto(`/recherche?q=${encodeURIComponent("aire jeux verger")}`);
+    await expect(page.getByText(uniq).first()).toBeVisible({ timeout: 10_000 });
+  });
+});
+
 test.describe("Modération", () => {
   test("habitant peut signaler une contribution", async ({ page }) => {
     await login(page, "marie@trizac.fr");

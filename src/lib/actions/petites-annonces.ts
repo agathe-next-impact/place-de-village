@@ -5,6 +5,7 @@ import { eq, gt } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/lib/db/client";
 import { getCurrentUser } from "@/lib/auth";
+import { indexEntity, removeFromIndex } from "@/lib/search";
 
 const idAuthor = (n: string) => {
   const parts = n.split(" ");
@@ -37,6 +38,14 @@ export async function createPetiteAnnonce(input: z.infer<typeof New>) {
       expiresAt,
     })
     .run();
+  indexEntity({
+    entityType: "petite_annonce",
+    entityId: id,
+    href: "/petites-annonces",
+    title: data.titre,
+    body: data.description,
+    themes: data.cat,
+  });
   revalidatePath("/petites-annonces");
   revalidatePath("/", "layout");
   return { id };
@@ -48,6 +57,7 @@ export async function closePetiteAnnonce(id: string) {
   if (!a) throw new Error("Introuvable");
   if (a.auteurId !== u.id) throw new Error("Seul l'auteur peut clôturer.");
   db.update(schema.petitesAnnonces).set({ closed: true }).where(eq(schema.petitesAnnonces.id, id)).run();
+  removeFromIndex("petite_annonce", id);
   revalidatePath("/petites-annonces");
 }
 

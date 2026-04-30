@@ -207,6 +207,36 @@ volumes: { db-data: {}, event-data: {} }
 À déployer sur OVHcloud / Scaleway / Infomaniak (UE), derrière un
 reverse proxy avec TLS (Caddy ou Nginx).
 
+## Recherche full-text
+
+**SQLite FTS5** — intégré nativement, **zéro infrastructure** ni
+service supplémentaire. Indexe les contenus citoyens dans une table
+virtuelle `search_index` :
+
+- comptes rendus de conseil municipal
+- idées Agora
+- propositions citoyennes
+- annonces officielles mairie
+- signalements pratiques
+- petites annonces locales
+
+Caractéristiques :
+- Tokenizer `unicode61 remove_diacritics 2` → insensible à la casse
+  et aux accents (« mairie » trouve aussi « MAIRIE » et « mairíe »).
+- BM25 par défaut, snippet avec markup `<mark>` pour le highlight.
+- Match préfixe sur le dernier token (recherche progressive naturelle).
+- Échappement systématique des opérateurs FTS5 saisis par
+  l'utilisateur (chaque token est encadré de guillemets → `OR`, `NOT`,
+  `*`, parenthèses sont neutralisés en littéraux).
+
+API : `searchAll(query, { types?, limit? })` dans `src/lib/search/`.
+Page utilisateur : `/recherche?q=...&type=...`.
+Page conseil municipal : `/conseil-municipal` (recherche dédiée).
+
+**Migration future vers Meilisearch / Typesense / pgvector** possible
+sans refonte UI : l'API expose la même surface (`searchAll`,
+`indexEntity`, `removeFromIndex`).
+
 ## Backend (démo SQLite)
 
 - **Schéma Drizzle** dans `src/lib/db/schema.ts` : 19 tables couvrant les

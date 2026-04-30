@@ -6,6 +6,7 @@ import { z } from "zod";
 import { db, schema } from "@/lib/db/client";
 import { getCurrentUser } from "@/lib/auth";
 import { notify } from "@/lib/actions/notifications";
+import { indexEntity } from "@/lib/search";
 
 const idAuthor = (n: string) => {
   const parts = n.split(" ");
@@ -28,6 +29,13 @@ export async function createSuggestion(input: z.infer<typeof NewIdea>) {
   db.insert(schema.auditLog)
     .values({ actorId: u.id, actorName: u.name, action: "create", entityType: "suggestion", entityId: id, details: data.titre.slice(0, 80) })
     .run();
+  indexEntity({
+    entityType: "suggestion",
+    entityId: id,
+    href: `/idees/${id}`,
+    title: data.titre,
+    themes: data.cat,
+  });
   revalidatePath("/", "layout");
   return { id };
 }
@@ -149,6 +157,13 @@ export async function promoteToProposition(input: z.infer<typeof Promote>) {
       details: `Issue de discussion ${data.discussionId}`,
     })
     .run();
+  indexEntity({
+    entityType: "proposition",
+    entityId: id,
+    href: `/propositions/${id}`,
+    title: data.titre,
+    body: [data.constat, data.proposition, data.justification, data.vigilance].join("\n"),
+  });
   revalidatePath("/", "layout");
   return { id };
 }
