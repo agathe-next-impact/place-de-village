@@ -53,6 +53,29 @@ tailles. Règles d'or :
 - Cibles tactiles ≥ 44 × 44 px.
 - Focus visible obligatoire (configuré globalement dans `globals.css`).
 
+## Tests
+
+- **Vitest** (`npm test`) — 29 tests unitaires : validations zod, hash
+  bcrypt, échappement XSS templates email, contraintes domaine.
+- **Playwright + axe-core** (`npm run test:e2e`) — 46 tests end-to-end :
+  - **Smoke** : 28 routes principales rendent leur contenu attendu +
+    export ICS valide.
+  - **A11y** : audit `axe-core` (WCAG 2.1 A + AA + RGAA) sur 12 pages
+    clés. Zéro violation bloquante. Les violations `serious color-contrast`
+    restantes (palette « sobre » originale à durcir) sont reportées en
+    console pour un sprint a11y dédié.
+  - **Flows** : login + publier idée + soutenir proposition / agent met
+    à jour signalement / magic link consommation / signaler une
+    contribution pour modération.
+- **CI** GitHub Actions : Node 22 + db:migrate + seed + typecheck +
+  vitest + build + Playwright (Chromium).
+
+```bash
+npm test                  # vitest
+npm run test:e2e          # Playwright headless
+npm run test:e2e:headed   # Playwright avec UI (debug)
+```
+
 ## Emails transactionnels
 
 Tout passe par **SMTP standard via nodemailer** — aucun SDK propriétaire,

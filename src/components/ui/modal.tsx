@@ -57,7 +57,7 @@ export function Modal({
       aria-modal="true"
       aria-labelledby={titleId}
       aria-describedby={description ? descId : undefined}
-      className="fixed inset-0 z-40 flex items-end md:items-center justify-center bg-black/40"
+      className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/40 pb-24 md:pb-0"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}

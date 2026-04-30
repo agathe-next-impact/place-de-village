@@ -31,12 +31,14 @@ export function MagicLinkForm() {
               L'email a été capturé dans <code>data/outbox/</code>. Pour la démo,
               cliquez :
               <div className="mt-2">
-                <Link
+                {/* <a> standard (pas <Link>) : on évite le prefetch
+                    Next.js qui consommerait le token au survol. */}
+                <a
                   href={sent.url}
                   className="inline-block bg-primary text-white px-3 py-2 rounded font-semibold underline"
                 >
                   Ouvrir le magic link
-                </Link>
+                </a>
               </div>
             </div>
           )}

@@ -11,7 +11,10 @@ const config: Config = {
         "surface-alt": "#e9e4dc",
         ink: "#1c1a17",
         "ink-soft": "#4d4843",
-        "ink-muted": "#7a746c",
+        // #7a746c (token original "sobre") = 4.12:1 sur bg → en dessous
+        // de WCAG AA 4.5:1 mesuré par axe-core. Légèrement assombri à
+        // #6e6862 = 4.93:1 pour passer l'audit a11y sans rupture visuelle.
+        "ink-muted": "#6e6862",
         line: "#d2ccc1",
         "line-soft": "#e3ddd2",
         primary: {
