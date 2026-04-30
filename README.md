@@ -16,6 +16,13 @@
 - **Zod** pour la validation côté serveur
 - Cookie HttpOnly de session (auth démo, à remplacer par NextAuth + JWT WP)
 
+## Déploiement
+
+- [`docs/DEPLOY-VERCEL.md`](docs/DEPLOY-VERCEL.md) — démo / staging
+  (⚠️ non conforme à l'exigence §3.1 souveraineté du CdC, US-based).
+- Scaleway Paris ou OVHcloud — recommandé pour la prod publique
+  (procédure à rédiger lors du sprint de mise en prod).
+
 ## Démarrer
 
 ```bash
