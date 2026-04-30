@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Providers } from "@/components/providers";
+import { ToastProvider } from "@/components/ui/toast";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -32,7 +32,7 @@ export default function RootLayout({
         >
           Aller au contenu principal
         </a>
-        <Providers>{children}</Providers>
+        <ToastProvider>{children}</ToastProvider>
       </body>
     </html>
   );

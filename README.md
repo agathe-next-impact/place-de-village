@@ -6,23 +6,27 @@
 
 ## Stack
 
-- Next.js 16 (App Router, RSC + Server Actions visés)
+- Next.js 16 (App Router, **RSC + Server Actions**)
 - React 19
 - TypeScript strict
 - Tailwind CSS 3 (tokens du design system « sobre » — cf. `tailwind.config.ts`)
 - `lucide-react` pour l'iconographie
-- Pas de Radix dans ce scaffolding initial : à introduire pour les composants
-  qui en bénéficient (Dialog, Tabs, Switch, Toast, Popover) lors de
-  l'implémentation des écrans détaillés non maquettés.
+- **SQLite + Drizzle ORM** comme backend de démo (à remplacer par
+  WordPress headless + WPGraphQL en production, cf. CdC §4)
+- **Zod** pour la validation côté serveur
+- Cookie HttpOnly de session (auth démo, à remplacer par NextAuth + JWT WP)
 
 ## Démarrer
 
 ```bash
 npm install
+npm run db:migrate    # crée data/trizac.db et applique le schéma
+npm run db:seed       # peuple ~30 entités fictives (utilisateurs, signalements, idées, missions…)
 npm run dev
 ```
 
-Ouvrir <http://localhost:3000>.
+Ouvrir <http://localhost:3000>. Le store SQLite est dans `data/trizac.db`
+(ignoré par git). Pour repartir de zéro : `rm -rf data/ && npm run db:seed`.
 
 ## Écrans livrés
 
@@ -48,6 +52,27 @@ tailles. Règles d'or :
   (`prefixDot` sur les chips d'état).
 - Cibles tactiles ≥ 44 × 44 px.
 - Focus visible obligatoire (configuré globalement dans `globals.css`).
+
+## Backend (démo SQLite)
+
+- **Schéma Drizzle** dans `src/lib/db/schema.ts` : 19 tables couvrant les
+  6 pôles + audit + messagerie + consentements RGPD.
+- **Server Actions** dans `src/lib/actions/*.ts` : signalements, agora
+  (idées / signaux / contributions / propositions / soutiens), missions,
+  entraide & messagerie, réservations, petites annonces. Toutes les actions
+  écrivent dans la DB et appellent `revalidatePath`.
+- **Lectures RSC** centralisées dans `src/lib/queries.ts` (joins, comptages,
+  agrégations, scoping par utilisateur courant).
+- **Détection de doublons** sur les signalements (même type + lieu commun,
+  proposition de rattachement à l'UI — cf. CdC §2.1 Pôle 3).
+- **Promotion automatique** d'une proposition en « réponse mairie due »
+  quand le seuil de soutiens est atteint (CdC §2.1 Pôle 1 Étage 3).
+- **Maturation automatique** d'une discussion à partir de 15 contributions.
+- **Vérification de conflit de réservation** côté serveur (overlap des
+  plages avec une réservation validée existante).
+- **Journal des décisions** (`audit_log`) auto-alimenté par les actions
+  sensibles : visible par la mairie sur `/mairie/journal`.
+- **Export ICS** de l'agenda communal sur `/api/ics`.
 
 ## Fonctionnalités câblées (état actuel)
 
