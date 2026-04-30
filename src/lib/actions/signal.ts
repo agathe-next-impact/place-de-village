@@ -13,6 +13,8 @@ const NewSignalement = z.object({
   description: z.string().trim().max(500).optional(),
   loc: z.string().trim().min(2),
   icon: z.string().min(1),
+  lat: z.number().min(-90).max(90).optional(),
+  lng: z.number().min(-180).max(180).optional(),
 });
 
 const idAuthor = (n: string) => {
@@ -54,6 +56,8 @@ export async function createSignalement(input: z.infer<typeof NewSignalement>) {
       auteur: idAuthor(u.name),
       etat: "signale",
       loc: data.loc,
+      lat: data.lat,
+      lng: data.lng,
       icon: data.icon,
     })
     .run();

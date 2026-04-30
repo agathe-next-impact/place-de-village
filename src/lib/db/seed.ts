@@ -73,10 +73,10 @@ db.insert(schema.users)
 // ── Pôle 3 : Signalements ────────────────────────────────────────────
 db.insert(schema.signalements)
   .values([
-    { id: "s1", type: "Voirie", titre: "Nid-de-poule rue du Lavoir", auteurId: "u2", auteur: "Jean M.", etat: "en-cours", loc: "Rue du Lavoir", icon: "MapPin" },
-    { id: "s2", type: "Éclairage", titre: "Lampadaire éteint place de l'Église", auteurId: "u3", auteur: "Marie D.", etat: "pris-en-compte", loc: "Pl. de l'Église", icon: "Lightbulb" },
-    { id: "s3", type: "Espaces verts", titre: "Branche cassée parc du Calvaire", auteurId: "u4", auteur: "Paul R.", etat: "resolu", loc: "Parc du Calvaire", icon: "TreeDeciduous" },
-    { id: "s4", type: "Propreté", titre: "Dépôt sauvage chemin des Vignes", auteurId: "u5", auteur: "Sophie L.", etat: "signale", loc: "Chemin des Vignes", icon: "Trash2" },
+    { id: "s1", type: "Voirie", titre: "Nid-de-poule rue du Lavoir", auteurId: "u2", auteur: "Jean M.", etat: "en-cours", loc: "Rue du Lavoir", lat: 45.2240, lng: 2.4640, icon: "MapPin" },
+    { id: "s2", type: "Éclairage", titre: "Lampadaire éteint place de l'Église", auteurId: "u3", auteur: "Marie D.", etat: "pris-en-compte", loc: "Pl. de l'Église", lat: 45.2253, lng: 2.4650, icon: "Lightbulb" },
+    { id: "s3", type: "Espaces verts", titre: "Branche cassée parc du Calvaire", auteurId: "u4", auteur: "Paul R.", etat: "resolu", loc: "Parc du Calvaire", lat: 45.2225, lng: 2.4612, icon: "TreeDeciduous" },
+    { id: "s4", type: "Propreté", titre: "Dépôt sauvage chemin des Vignes", auteurId: "u5", auteur: "Sophie L.", etat: "signale", loc: "Chemin des Vignes", lat: 45.2208, lng: 2.4685, icon: "Trash2" },
   ])
   .run();
 

@@ -7,6 +7,7 @@ import {
   ArrowRight,
   Brush,
   Camera,
+  Crosshair,
   Lightbulb,
   MapPin,
   Send,
@@ -21,6 +22,9 @@ import { Modal } from "@/components/ui/modal";
 import { PageHeader } from "@/components/ui/page-header";
 import { useToast } from "@/components/ui/toast";
 import { createSignalement } from "@/lib/actions/signal";
+import { MapView } from "@/components/interactive/map-view";
+
+const TRIZAC_CENTER: [number, number] = [2.4640, 45.2240];
 
 const CATEGORIES = [
   { id: "voirie", label: "Voirie", iconKey: "MapPin", Icon: MapPin },
@@ -43,6 +47,12 @@ export function NewSignalementForm() {
     Array<{ id: string; titre: string; loc: string; etat: string }>
   >([]);
   const [createdId, setCreatedId] = useState<string | null>(null);
+  const [coords, setCoords] = useState<{ lng: number; lat: number; precision: string }>({
+    lng: TRIZAC_CENTER[0],
+    lat: TRIZAC_CENTER[1],
+    precision: "approximative (centre Trizac)",
+  });
+  const [showMap, setShowMap] = useState(false);
   const { show } = useToast();
 
   const submit = () => {
@@ -56,6 +66,8 @@ export function NewSignalementForm() {
           loc: "Rue du Lavoir",
           icon: c.iconKey,
           description: desc,
+          lat: coords.lat,
+          lng: coords.lng,
         });
         if (r.duplicates.length > 0) {
           setCreatedId(r.id);
@@ -114,15 +126,75 @@ export function NewSignalementForm() {
           </div>
           <div className="px-[18px] py-2">
             <div className="text-[12px] font-semibold text-ink-soft mb-1.5">Lieu</div>
-            <Surface className="flex items-center gap-2.5">
-              <MapPin size={18} strokeWidth={1.6} className="text-primary" />
-              <div className="flex-1">
-                <div className="text-[13px] font-semibold text-ink">Position GPS détectée</div>
-                <div className="text-[11.5px] text-ink-muted">Rue du Lavoir, Trizac · ±8 m</div>
+            <Surface>
+              <div className="flex items-center gap-2.5">
+                <MapPin size={18} strokeWidth={1.6} className="text-primary" />
+                <div className="flex-1">
+                  <div className="text-[13px] font-semibold text-ink">
+                    {coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}
+                  </div>
+                  <div className="text-[11.5px] text-ink-muted">{coords.precision}</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowMap((s) => !s)}
+                  className="text-[12px] text-primary font-semibold"
+                >
+                  {showMap ? "Masquer" : "Choisir"}
+                </button>
               </div>
-              <button type="button" className="text-[12px] text-primary font-semibold">
-                Modifier
-              </button>
+              <div className="mt-2 flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  icon={<Crosshair size={14} strokeWidth={1.6} />}
+                  onClick={() => {
+                    if (!navigator.geolocation) {
+                      show({ tone: "danger", title: "Géolocalisation indisponible" });
+                      return;
+                    }
+                    navigator.geolocation.getCurrentPosition(
+                      (pos) => {
+                        setCoords({
+                          lat: pos.coords.latitude,
+                          lng: pos.coords.longitude,
+                          precision: `±${Math.round(pos.coords.accuracy)} m (GPS)`,
+                        });
+                        show({ tone: "success", title: "Position obtenue" });
+                      },
+                      () => show({ tone: "danger", title: "Position refusée par le navigateur" }),
+                      { enableHighAccuracy: true, maximumAge: 0, timeout: 8000 },
+                    );
+                  }}
+                >
+                  Utiliser ma position
+                </Button>
+              </div>
+              {showMap && (
+                <div className="mt-3">
+                  <MapView
+                    points={[
+                      {
+                        id: "self",
+                        lat: coords.lat,
+                        lng: coords.lng,
+                        color: "#1f6e7a",
+                        label: "Position du signalement",
+                      },
+                    ]}
+                    center={[coords.lng, coords.lat]}
+                    zoom={15}
+                    height={260}
+                    onMapClick={(lng, lat) =>
+                      setCoords({ lat, lng, precision: "choisie sur la carte" })
+                    }
+                  />
+                  <div className="text-[11px] text-ink-muted mt-1.5">
+                    Cliquez sur la carte pour préciser le lieu exact.
+                  </div>
+                </div>
+              )}
             </Surface>
           </div>
           <div className="p-[18px]">

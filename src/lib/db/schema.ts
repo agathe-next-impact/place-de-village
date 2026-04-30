@@ -3,6 +3,7 @@ import {
   index,
   integer,
   primaryKey,
+  real,
   sqliteTable,
   text,
   uniqueIndex,
@@ -102,8 +103,8 @@ export const signalements = sqliteTable(
       .notNull()
       .default("signale"),
     loc: text("loc").notNull(),
-    lat: integer("lat"),
-    lng: integer("lng"),
+    lat: real("lat"),
+    lng: real("lng"),
     icon: text("icon").notNull(),
     createdAt: integer("created_at", { mode: "timestamp" })
       .notNull()

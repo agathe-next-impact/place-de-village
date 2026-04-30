@@ -6,6 +6,7 @@ import { Surface } from "@/components/ui/surface";
 import { Section } from "@/components/ui/section";
 import { Chip } from "@/components/ui/chip";
 import { listSignalements } from "@/lib/queries";
+import { MapView, type MapPoint } from "@/components/interactive/map-view";
 
 const ETAT_LABEL = {
   signale: "Signalé",
@@ -131,72 +132,38 @@ function formatRelative(d: Date) {
 }
 
 function SignalMap({ signalements }: { signalements: Awaited<ReturnType<typeof listSignalements>> }) {
-  const positions = [
-    { x: 165, y: 200 },
-    { x: 220, y: 80 },
-    { x: 120, y: 280 },
-    { x: 80, y: 340 },
-    { x: 260, y: 200 },
-    { x: 100, y: 100 },
-  ];
-  const items = signalements.slice(0, 6).map((s, i) => ({
-    ...positions[i],
-    etat: s.etat,
-    Icon: ICON_BY_NAME[s.icon as keyof typeof ICON_BY_NAME] ?? MapPin,
-  }));
+  const points: MapPoint[] = signalements
+    .filter((s): s is typeof s & { lat: number; lng: number } => s.lat != null && s.lng != null)
+    .map((s) => ({
+      id: s.id,
+      lat: s.lat,
+      lng: s.lng,
+      color: ETAT_COLOR[s.etat as keyof typeof ETAT_COLOR],
+      label: s.titre,
+      description: `${s.loc} · ${ETAT_LABEL[s.etat as keyof typeof ETAT_LABEL]}`,
+      href: `/signalements/${s.id}`,
+    }));
+
   return (
     <div className="px-[18px]">
-      <div
-        role="img"
-        aria-label="Carte des signalements (placeholder à remplacer par MapLibre + tuiles IGN)"
-        className="relative h-[380px] rounded-lg overflow-hidden border border-line-soft"
-        style={{ background: "#e6dec8" }}
-      >
-        <svg width="100%" height="100%" viewBox="0 0 340 380" className="absolute inset-0" aria-hidden>
-          <path d="M0 180 Q100 160 180 200 T340 220" stroke="#cdbe9c" strokeWidth="14" fill="none" />
-          <path d="M150 0 L160 380" stroke="#cdbe9c" strokeWidth="10" fill="none" />
-          <path d="M0 80 Q150 100 340 60" stroke="#cdbe9c" strokeWidth="8" fill="none" />
-          <path d="M50 380 L80 240 L120 200" stroke="#cdbe9c" strokeWidth="8" fill="none" />
-          <rect x="155" y="190" width="22" height="22" fill="#bda985" rx="2" />
-          <rect x="180" y="195" width="14" height="18" fill="#bda985" rx="2" />
-          <rect x="120" y="170" width="20" height="16" fill="#bda985" rx="2" />
-          <rect x="200" y="60" width="16" height="20" fill="#bda985" rx="2" />
-          <circle cx="60" cy="100" r="22" fill="#b8c995" opacity="0.7" />
-          <circle cx="280" cy="300" r="30" fill="#b8c995" opacity="0.7" />
-          <path d="M0 320 Q100 280 200 320 T340 280" stroke="#9eb6c4" strokeWidth="6" fill="none" />
-        </svg>
-        {items.map((m, i) => {
-          const c = ETAT_COLOR[m.etat as keyof typeof ETAT_COLOR];
-          return (
-            <div
-              key={i}
-              className="absolute flex items-center justify-center rounded-[50%_50%_50%_0] border-2 border-white shadow-[0_2px_5px_rgba(0,0,0,0.25)]"
-              style={{ left: m.x, top: m.y, width: 32, height: 32, background: c, color: "#fff", transform: "translate(-50%, -100%) rotate(-45deg)" }}
-            >
-              <div style={{ transform: "rotate(45deg)" }}>
-                <m.Icon size={14} strokeWidth={1.6} />
-              </div>
-            </div>
-          );
-        })}
-        <div className="absolute top-3 left-3 bg-surface px-2.5 py-1 rounded text-[11px] font-semibold text-ink border border-line-soft">
-          Bourg de Trizac
-        </div>
-        <div className="absolute bottom-3 left-3 right-3 bg-surface p-2.5 rounded border border-line-soft flex justify-around text-[10.5px] text-ink-soft">
-          {(
-            [
-              { c: "#7a746c", l: "Signalé" },
-              { c: "#1f6e7a", l: "Pris en compte" },
-              { c: "#e8a838", l: "En cours" },
-              { c: "#7a8c3a", l: "Résolu" },
-            ] as const
-          ).map((x) => (
-            <div key={x.l} className="flex items-center gap-1">
-              <span aria-hidden className="w-2 h-2 rounded-pill" style={{ backgroundColor: x.c }} />
-              {x.l}
-            </div>
-          ))}
-        </div>
+      <MapView points={points} className="border border-line-soft" />
+      <div className="mt-2 bg-surface p-2.5 rounded border border-line-soft flex flex-wrap gap-x-3 gap-y-1 justify-around text-[10.5px] text-ink-soft">
+        {(
+          [
+            { c: "#7a746c", l: "Signalé" },
+            { c: "#1f6e7a", l: "Pris en compte" },
+            { c: "#e8a838", l: "En cours" },
+            { c: "#7a8c3a", l: "Résolu" },
+          ] as const
+        ).map((x) => (
+          <div key={x.l} className="flex items-center gap-1">
+            <span aria-hidden className="w-2 h-2 rounded-pill" style={{ backgroundColor: x.c }} />
+            {x.l}
+          </div>
+        ))}
+      </div>
+      <div className="text-[11px] text-ink-muted mt-2 text-center">
+        Fond cartographique <strong>IGN — Géoplateforme</strong> (open data).
       </div>
     </div>
   );
