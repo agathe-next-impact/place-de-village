@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Surface } from "@/components/ui/surface";
 import { useToast } from "@/components/ui/toast";
 import { createReservation } from "@/lib/actions/reservations";
+import { track } from "@/lib/analytics";
+import { EVENTS } from "@/lib/analytics-events";
 
 export function ReserveForm({ equipementId }: { equipementId: string }) {
   const router = useRouter();
@@ -27,6 +29,7 @@ export function ReserveForm({ equipementId }: { equipementId: string }) {
           startT(async () => {
             try {
               await createReservation({ equipementId, startIso: start, endIso: end, motif: motif.trim() });
+              track(EVENTS.reservationRequested);
               show({ tone: "success", title: "Demande envoyée", desc: "En attente de validation." });
               router.push("/reservation");
             } catch (err) {

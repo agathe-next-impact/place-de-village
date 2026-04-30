@@ -5,6 +5,8 @@ import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { toggleSupport } from "@/lib/actions/agora";
+import { track } from "@/lib/analytics";
+import { EVENTS } from "@/lib/analytics-events";
 
 export function SupportButton({
   propositionId,
@@ -33,6 +35,7 @@ export function SupportButton({
         start(async () => {
           try {
             const r = await toggleSupport(propositionId);
+            track(EVENTS.supportToggled, { added: r.supported });
             show({
               tone: r.supported ? "success" : "info",
               title: r.supported ? "Soutien enregistré" : "Soutien retiré",

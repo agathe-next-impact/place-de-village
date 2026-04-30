@@ -3,6 +3,8 @@
 import { useTransition } from "react";
 import { useToast } from "@/components/ui/toast";
 import { toggleSignal } from "@/lib/actions/agora";
+import { track } from "@/lib/analytics";
+import { EVENTS } from "@/lib/analytics-events";
 
 const LABEL: Record<"vis" | "important" | "contribuer", string> = {
   vis: "Je vis ça",
@@ -35,6 +37,7 @@ export function SignalButton({
         start(async () => {
           try {
             const r = await toggleSignal(suggestionId, type);
+            if (r.added) track(EVENTS.signalEmitted, { type });
             show({
               tone: r.added ? "success" : "info",
               title: r.added ? "Signal enregistré" : "Signal retiré",

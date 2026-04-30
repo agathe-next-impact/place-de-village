@@ -7,6 +7,8 @@ import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { createSuggestion } from "@/lib/actions/agora";
+import { track } from "@/lib/analytics";
+import { EVENTS } from "@/lib/analytics-events";
 
 const CATEGORIES = [
   "Cadre de vie",
@@ -66,6 +68,7 @@ export function NewIdeaButton() {
             start(async () => {
               try {
                 await createSuggestion({ titre: titre.trim(), cat });
+                track(EVENTS.ideaCreated, { cat });
                 show({
                   tone: "success",
                   title: "Idée publiée",

@@ -4,6 +4,8 @@ import { useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { toggleRegistration } from "@/lib/actions/missions";
+import { track } from "@/lib/analytics";
+import { EVENTS } from "@/lib/analytics-events";
 
 export function RegistrationButton({
   missionId,
@@ -42,6 +44,7 @@ export function RegistrationButton({
         start(async () => {
           try {
             const r = await toggleRegistration(missionId);
+            if (r.registered) track(EVENTS.missionRegistered);
             show({
               tone: r.registered ? "success" : "info",
               title: r.registered ? "Inscription confirmée" : "Inscription annulée",

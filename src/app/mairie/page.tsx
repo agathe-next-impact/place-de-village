@@ -90,6 +90,9 @@ export default async function Page() {
                 </span>
               )}
             </Link>
+            <Link href="/mairie/analytics" className="no-underline text-primary font-semibold">
+              Analytics →
+            </Link>
           </div>
         }
       >

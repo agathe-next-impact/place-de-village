@@ -5,6 +5,8 @@ import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { sendMessage } from "@/lib/actions/aide";
+import { track } from "@/lib/analytics";
+import { EVENTS } from "@/lib/analytics-events";
 
 export function MessageComposer({ conversationId }: { conversationId: string }) {
   const [body, setBody] = useState("");
@@ -19,6 +21,7 @@ export function MessageComposer({ conversationId }: { conversationId: string }) 
         start(async () => {
           try {
             await sendMessage({ conversationId, body: body.trim() });
+            track(EVENTS.messageSent);
             setBody("");
           } catch (err) {
             show({ tone: "danger", title: "Erreur", desc: String(err instanceof Error ? err.message : err) });

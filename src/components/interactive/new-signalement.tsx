@@ -23,6 +23,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { useToast } from "@/components/ui/toast";
 import { createSignalement } from "@/lib/actions/signal";
 import { MapView } from "@/components/interactive/map-view";
+import { track } from "@/lib/analytics";
+import { EVENTS } from "@/lib/analytics-events";
 
 const TRIZAC_CENTER: [number, number] = [2.4640, 45.2240];
 
@@ -69,6 +71,7 @@ export function NewSignalementForm() {
           lat: coords.lat,
           lng: coords.lng,
         });
+        track(EVENTS.signalementCreated, { type: c.label, duplicates: r.duplicates.length });
         if (r.duplicates.length > 0) {
           setCreatedId(r.id);
           setDuplicates(

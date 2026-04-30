@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
 import { openConversation } from "@/lib/actions/aide";
+import { track } from "@/lib/analytics";
+import { EVENTS } from "@/lib/analytics-events";
 
 export function OpenConversationButton({
   entraideId,
@@ -28,6 +30,7 @@ export function OpenConversationButton({
         start(async () => {
           try {
             const r = await openConversation(entraideId);
+            track(EVENTS.conversationOpened);
             router.push(`/messages/${r.id}`);
           } catch (err) {
             show({ tone: "danger", title: "Erreur", desc: String(err instanceof Error ? err.message : err) });

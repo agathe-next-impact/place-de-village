@@ -147,6 +147,66 @@ L'instrumentation Next.js (`src/instrumentation.ts` +
 `src/instrumentation-client.ts`) initialise le SDK aux runtimes
 Node, Edge et navigateur.
 
+## Analytics (Plausible auto-hébergé)
+
+**Plausible** est open source (AGPL), self-hosted via Docker, **sans
+cookies, sans fingerprinting, sans profilage individuel**. Conforme
+RGPD par construction → aucun bandeau de consentement requis pour la
+mesure d'audience.
+
+Configurer dans `.env.local` :
+```
+NEXT_PUBLIC_PLAUSIBLE_HOST=https://plausible.example.fr
+NEXT_PUBLIC_PLAUSIBLE_DOMAIN=trizac.fr
+```
+
+Sans config, aucun script n'est chargé. Le composant
+`src/components/plausible.tsx` injecte un `<Script>` Next.js léger
+(~1 ko) pointant vers l'instance auto-hébergée.
+
+**Custom events** mesurés (catalogue stable dans
+`src/lib/analytics-events.ts`) : `idea-created`, `signal-emitted`,
+`support-toggled`, `mission-registered`, `signalement-created`,
+`conversation-opened`, `message-sent`, `reservation-requested`.
+Aucun événement ne contient d'identifiant personnel.
+
+**Stats locales** : la page `/mairie/analytics` affiche en complément
+une vue agrégée tirée du journal des décisions (`audit_log`), même
+sans Plausible — nombre d'actions citoyennes, utilisateur·rices
+distinct·e·s, répartition par type d'action.
+
+### Déploiement Plausible self-hosted
+
+Référence officielle : <https://plausible.io/docs/self-hosting>.
+
+Squelette `docker-compose.yml` minimal (à adapter à votre infra UE) :
+```yaml
+services:
+  plausible_db:
+    image: postgres:16-alpine
+    volumes: [db-data:/var/lib/postgresql/data]
+    environment:
+      POSTGRES_PASSWORD: ${PG_PASSWORD}
+  plausible_events_db:
+    image: clickhouse/clickhouse-server:24.3-alpine
+    volumes: [event-data:/var/lib/clickhouse]
+    ulimits:
+      nofile: { soft: 262144, hard: 262144 }
+  plausible:
+    image: ghcr.io/plausible/community-edition:v3
+    depends_on: [plausible_db, plausible_events_db]
+    ports: ["8000:8000"]
+    environment:
+      BASE_URL: https://plausible.example.fr
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE}
+      DATABASE_URL: postgres://postgres:${PG_PASSWORD}@plausible_db:5432/plausible_db
+      CLICKHOUSE_DATABASE_URL: http://plausible_events_db:8123/plausible_events_db
+volumes: { db-data: {}, event-data: {} }
+```
+
+À déployer sur OVHcloud / Scaleway / Infomaniak (UE), derrière un
+reverse proxy avec TLS (Caddy ou Nginx).
+
 ## Backend (démo SQLite)
 
 - **Schéma Drizzle** dans `src/lib/db/schema.ts` : 19 tables couvrant les

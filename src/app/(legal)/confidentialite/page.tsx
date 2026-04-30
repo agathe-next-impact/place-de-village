@@ -55,10 +55,20 @@ export default function Page() {
 
       <h2 className="text-[18px] font-bold mt-6 mb-2">Sous-traitants</h2>
       <p className="text-[14px] text-ink-soft">
-        Hébergement (OVHcloud / Scaleway / Infomaniak), emails (Brevo ou
-        Listmonk auto-hébergé), SMS (OVHcloud SMS / SMSPartner), analytics
-        (Plausible auto-hébergé). Tous sont localisés en Union européenne et
-        liés par un contrat de sous-traitance RGPD (DPA).
+        Hébergement (OVHcloud / Scaleway / Infomaniak), emails (Postfix
+        self-hosted / Listmonk / Brevo SMTP), SMS (SMSPartner / OVHcloud
+        SMS), analytics (Plausible auto-hébergé). Tous sont localisés en
+        Union européenne et liés par un contrat de sous-traitance RGPD (DPA).
+      </p>
+
+      <h2 className="text-[18px] font-bold mt-6 mb-2">Mesure d'audience</h2>
+      <p className="text-[14px] text-ink-soft">
+        Notre instance <strong>Plausible auto-hébergée</strong> mesure le
+        trafic agrégé : pages consultées, sessions, sources. Elle{" "}
+        <strong>n'utilise aucun cookie</strong>, ne crée aucun profil
+        individuel et ne suit pas les utilisateur·rices entre sites.
+        À ce titre, et conformément à la position de la CNIL, son
+        fonctionnement ne requiert pas de bandeau de consentement.
       </p>
 
       <h2 className="text-[18px] font-bold mt-6 mb-2">Vos droits</h2>

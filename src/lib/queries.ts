@@ -445,6 +445,34 @@ export async function listSmsQueue(limit = 50) {
     .all();
 }
 
+// ─── Analytics locales ───────────────────────────────────────────────
+/**
+ * Stats locales tirées de l'audit_log. Pas un substitut à Plausible
+ * (qui mesure sessions, trafic, rétention) — fournit juste des
+ * chiffres bruts sur les actions citoyennes pour la vue mairie.
+ */
+export async function localStats(days = 30) {
+  const cutoff = new Date(Date.now() - days * 24 * 3600 * 1000);
+  const rows = db
+    .select({
+      action: schema.auditLog.action,
+      entityType: schema.auditLog.entityType,
+      c: sql<number>`count(*)`,
+    })
+    .from(schema.auditLog)
+    .where(gt(schema.auditLog.at, cutoff))
+    .groupBy(schema.auditLog.action, schema.auditLog.entityType)
+    .all();
+  const total = rows.reduce((s, r) => s + r.c, 0);
+  const distinctUsers =
+    db
+      .select({ c: sql<number>`count(distinct ${schema.auditLog.actorId})` })
+      .from(schema.auditLog)
+      .where(gt(schema.auditLog.at, cutoff))
+      .get()?.c ?? 0;
+  return { rows, total, distinctUsers, days };
+}
+
 // ─── Error log ───────────────────────────────────────────────────────
 export async function listErrors(limit = 80) {
   return db
