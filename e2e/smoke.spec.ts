@@ -22,6 +22,7 @@ const ROUTES = [
   { path: "/mairie/reservations", expect: "Réservations à valider" },
   { path: "/mairie/moderation", expect: "Signalements de contenu" },
   { path: "/mairie/emails", expect: "File d'envoi" },
+  { path: "/mairie/sms", expect: "Provider" },
   { path: "/mentions-legales", expect: "Mentions légales" },
   { path: "/confidentialite", expect: "Politique de confidentialité" },
   { path: "/accessibilite", expect: "Déclaration d'accessibilité" },

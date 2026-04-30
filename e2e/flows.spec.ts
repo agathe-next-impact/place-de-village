@@ -112,3 +112,22 @@ test.describe("Modération", () => {
     await expect(page.getByText("Signalement envoyé")).toBeVisible();
   });
 });
+
+test.describe("SMS", () => {
+  test("inscription mission (Camille avec téléphone seedé) génère un SMS programmé", async ({
+    page,
+  }) => {
+    await login(page, "camille@trizac.fr");
+    await page.goto("/missions/m1");
+    const btn = page
+      .getByRole("button", { name: /Je m'inscris|Inscrit·e/ })
+      .first();
+    if (await btn.isVisible()) {
+      await btn.click();
+      await page.waitForTimeout(500);
+    }
+    // Le SMS programmé doit apparaître dans la file mairie
+    await page.goto("/mairie/sms");
+    await expect(page.getByText("+33611223344")).toBeVisible({ timeout: 10_000 });
+  });
+});

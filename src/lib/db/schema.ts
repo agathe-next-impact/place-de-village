@@ -25,6 +25,9 @@ export const users = sqliteTable("users", {
     .default("habitant"),
   passwordHash: text("password_hash"),
   emailVerifiedAt: integer("email_verified_at", { mode: "timestamp" }),
+  /** Téléphone E.164 (ex: +33611223344). Optionnel — utilisé uniquement
+   *  pour les rappels SMS de bénévolat avec consentement `sms` explicite. */
+  phone: text("phone"),
   createdAt: integer("created_at", { mode: "timestamp" })
     .notNull()
     .default(sql`(unixepoch())`),
@@ -93,6 +96,42 @@ export const consents = sqliteTable(
  * lignes en `pending` et les pousse via SMTP. En mode démo sans SMTP
  * configuré, le mailer écrit en outbox local + marque comme "captured".
  */
+/**
+ * File d'attente SMS sortants. Même architecture que email_queue :
+ * durabilité, retry, audit. Le champ `scheduled_at` permet de
+ * programmer l'envoi à une date future (rappel J-1 mission).
+ *
+ * Le worker (cron infra) consomme les lignes pending dont
+ * `scheduled_at <= now()`. En mode démo sans provider configuré,
+ * le SMS est capturé en outbox local + marqué `captured`.
+ */
+export const smsQueue = sqliteTable(
+  "sms_queue",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    toPhone: text("to_phone").notNull(),
+    body: text("body").notNull(),
+    template: text("template").notNull(),
+    relatedEntity: text("related_entity"),
+    scheduledAt: integer("scheduled_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    status: text("status", { enum: ["pending", "sent", "captured", "failed"] })
+      .notNull()
+      .default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    lastError: text("last_error"),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    sentAt: integer("sent_at", { mode: "timestamp" }),
+  },
+  (t) => ({
+    statusIdx: index("sms_queue_status_idx").on(t.status),
+    schedIdx: index("sms_queue_sched_idx").on(t.scheduledAt),
+  }),
+);
+
 export const emailQueue = sqliteTable(
   "email_queue",
   {

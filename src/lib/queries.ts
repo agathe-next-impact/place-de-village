@@ -434,3 +434,13 @@ export async function listEmailQueue(limit = 50) {
     .limit(limit)
     .all();
 }
+
+// ─── SMS queue ───────────────────────────────────────────────────────
+export async function listSmsQueue(limit = 50) {
+  return db
+    .select()
+    .from(schema.smsQueue)
+    .orderBy(desc(schema.smsQueue.createdAt))
+    .limit(limit)
+    .all();
+}

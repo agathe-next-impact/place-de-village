@@ -11,6 +11,7 @@ tsconfig.tsbuildinfo
 data/*.db
 data/*.db-*
 data/outbox/
+data/sms-outbox/
 playwright-report/
 test-results/
 .playwright/

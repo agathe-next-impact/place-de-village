@@ -77,6 +77,9 @@ export default async function Page() {
             <Link href="/mairie/emails" className="no-underline text-primary font-semibold">
               Emails →
             </Link>
+            <Link href="/mairie/sms" className="no-underline text-primary font-semibold">
+              SMS →
+            </Link>
           </div>
         }
       >

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
+import { updatePhoneAndConsent } from "@/lib/actions/sms";
 
 const CONSENTS_INIT = {
   contributions: true,
@@ -13,6 +14,8 @@ const CONSENTS_INIT = {
 
 export default function Page() {
   const [consents, setConsents] = useState(CONSENTS_INIT);
+  const [phone, setPhone] = useState("");
+  const [phonePending, startPhone] = useTransition();
   const { show } = useToast();
   const update = (k: keyof typeof CONSENTS_INIT, v: boolean) =>
     setConsents((prev) => ({ ...prev, [k]: v }));
@@ -77,6 +80,43 @@ export default function Page() {
           </label>
         ))}
       </fieldset>
+
+      <h2 className="text-[18px] font-bold mt-6 mb-2">Mon téléphone</h2>
+      <p className="text-[13px] text-ink-soft mb-2">
+        Optionnel. Utilisé uniquement pour les rappels SMS la veille des
+        missions de bénévolat (si le consentement ci-dessus est accordé).
+        Numéro non exposé publiquement.
+      </p>
+      <form
+        className="bg-surface border border-line-soft rounded p-3 flex flex-wrap items-end gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          startPhone(async () => {
+            try {
+              await updatePhoneAndConsent({ phone, smsConsent: consents.sms });
+              show({ tone: "success", title: "Téléphone enregistré" });
+            } catch (err) {
+              show({ tone: "danger", title: "Erreur", desc: String(err instanceof Error ? err.message : err) });
+            }
+          });
+        }}
+      >
+        <label className="flex-1 min-w-[200px]">
+          <span className="text-[12px] font-semibold text-ink-soft block mb-1">
+            Numéro de téléphone
+          </span>
+          <input
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="+33 6 11 22 33 44 ou 06 11 22 33 44"
+            className="w-full px-3 py-2.5 bg-surface border border-line-soft rounded text-[14px] text-ink outline-none focus:border-primary min-h-[44px]"
+          />
+        </label>
+        <Button type="submit" disabled={phonePending}>
+          Enregistrer
+        </Button>
+      </form>
 
       <h2 className="text-[18px] font-bold mt-6 mb-2">Vos droits RGPD</h2>
       <div className="grid sm:grid-cols-2 gap-3">

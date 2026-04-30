@@ -100,6 +100,30 @@ mission-inscription, reservation, proposition-seuil, generic).
 Le consentement `transac_email` (par défaut accordé pour les transactions
 liées à la mission de service public) est révocable depuis `/mes-donnees`.
 
+## SMS transactionnels (rappels bénévolat)
+
+Même philosophie d'indépendance que pour les emails : interface
+provider neutre, aucune dépendance SDK propriétaire. Providers fournis :
+
+- **`outbox`** (par défaut) — écrit dans `data/sms-outbox/`, zéro
+  configuration. Idéal pour la démo et la CI.
+- **`smspartner`** — SMSPartner (France, RGPD), HTTP REST + clé API.
+- **`ovh-sms`** — OVHcloud SMS (France, cloud souverain). Stub : la
+  signature HMAC est documentée mais non implémentée par défaut.
+
+Configurer `SMS_PROVIDER` + clés dans `.env.local`. Cf. `.env.example`.
+
+**Programmation J-1** : à l'inscription d'un bénévole à une mission,
+si l'utilisateur a un téléphone et le consentement `sms`, un rappel
+est ajouté à `sms_queue` avec `scheduled_at = mission_date - 1 j 09h00`.
+Un endpoint `POST /api/cron/sms` (protégé par `CRON_SECRET`) consomme
+les pending dont `scheduled_at <= now()` — à déclencher par un cron
+infra (Scaleway Serverless Cron, cron-job.org auto-hébergé, systemd
+timer…).
+
+Page de visualisation : `/mairie/sms` (queue + bouton « Forcer le
+dispatch maintenant » pour la démo).
+
 ## Backend (démo SQLite)
 
 - **Schéma Drizzle** dans `src/lib/db/schema.ts` : 19 tables couvrant les

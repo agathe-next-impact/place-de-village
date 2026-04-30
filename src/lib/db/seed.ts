@@ -60,14 +60,23 @@ const seedUsers = [
   { id: "ref1", email: "comite@trizac.fr", name: "Comité des fêtes", role: "referent" as const },
   { id: "maire", email: "maire@trizac.fr", name: "Maire de Trizac", role: "maire" as const },
 ];
+// Phone seedé pour Camille uniquement (numéro fictif format E.164 FR).
+const SEED_PHONES: Record<string, string> = { u1: "+33611223344" };
+
 db.insert(schema.users)
   .values(
     seedUsers.map((u) => ({
       ...u,
       passwordHash: SEED_PWD_HASH,
       emailVerifiedAt: new Date(),
+      phone: SEED_PHONES[u.id] ?? null,
     })),
   )
+  .run();
+
+// Camille a accordé le consentement SMS pour rendre la démo immédiate.
+db.insert(schema.consents)
+  .values({ userId: "u1", finality: "sms", granted: true, updatedAt: new Date() })
   .run();
 
 // ── Pôle 3 : Signalements ────────────────────────────────────────────
