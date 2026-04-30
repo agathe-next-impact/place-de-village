@@ -53,6 +53,30 @@ tailles. Règles d'or :
 - Cibles tactiles ≥ 44 × 44 px.
 - Focus visible obligatoire (configuré globalement dans `globals.css`).
 
+## Emails transactionnels
+
+Tout passe par **SMTP standard via nodemailer** — aucun SDK propriétaire,
+aucun service SaaS imposé. Compatible avec Postfix self-hosted, Mailcow,
+OVHcloud, Infomaniak, etc.
+
+```bash
+cp .env.example .env.local
+# éditez SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASS
+```
+
+**Sans SMTP configuré** (par défaut en démo), les emails sont écrits
+dans `data/outbox/` au format `.eml` (consultables dans n'importe quel
+client mail) et listés sur `/mairie/emails`. Aucune dépendance externe
+n'est requise pour faire tourner le projet en local.
+
+Les emails sont écrits dans la table `email_queue` (durabilité, retry,
+trace), puis dispatch immédiat. Templates dans `src/lib/email/templates.ts`
+(7 templates : welcome, magic-link, signalement-state, new-message,
+mission-inscription, reservation, proposition-seuil, generic).
+
+Le consentement `transac_email` (par défaut accordé pour les transactions
+liées à la mission de service public) est révocable depuis `/mes-donnees`.
+
 ## Backend (démo SQLite)
 
 - **Schéma Drizzle** dans `src/lib/db/schema.ts` : 19 tables couvrant les

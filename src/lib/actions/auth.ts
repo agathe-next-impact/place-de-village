@@ -14,6 +14,9 @@ import {
   hashPassword,
   verifyPassword,
 } from "@/lib/auth";
+import { queueAndSendEmail, templates } from "@/lib/email";
+
+const APP_URL = process.env.PUBLIC_BASE_URL ?? "http://localhost:3000";
 
 // ─── Inscription ──────────────────────────────────────────────────────
 const Register = z.object({
@@ -35,6 +38,17 @@ export async function registerUser(input: z.infer<typeof Register>) {
     .run();
   const ua = (await headers()).get("user-agent") ?? null;
   await createSession(id, ua ?? undefined);
+  // Email de bienvenue
+  try {
+    await queueAndSendEmail({
+      to: data.email,
+      toName: data.name,
+      template: "welcome",
+      rendered: templates.welcome({ name: data.name }),
+    });
+  } catch (err) {
+    console.error("[email]", err);
+  }
   revalidatePath("/", "layout");
   return { id, email: data.email };
 }
@@ -63,15 +77,26 @@ export async function loginUser(input: z.infer<typeof Login>) {
 const MagicEmail = z.object({ email: z.string().trim().toLowerCase().email() });
 
 /**
- * Génère un magic link. En production, envoyé par email via Brevo /
- * Listmonk auto-hébergé. En démo : on retourne le lien complet pour
- * que l'UI puisse l'afficher.
+ * Génère un magic link et l'envoie par email via SMTP. Si SMTP n'est
+ * pas configuré, l'email est capturé en outbox local — l'UI affiche
+ * alors également le lien direct pour faciliter la démo.
  */
 export async function requestMagicLink(input: z.infer<typeof MagicEmail>) {
   const data = MagicEmail.parse(input);
   const token = await createMagicToken(data.email);
-  const url = `/api/magic/${token}`;
-  return { url, email: data.email };
+  const path = `/api/magic/${token}`;
+  const fullUrl = `${APP_URL}${path}`;
+  try {
+    await queueAndSendEmail({
+      to: data.email,
+      template: "magic-link",
+      rendered: templates.magicLink({ url: fullUrl, ttlMin: 15 }),
+    });
+  } catch (err) {
+    console.error("[email]", err);
+  }
+  // En démo (pas de SMTP), on retourne aussi l'URL pour permettre la connexion immédiate.
+  return { url: path, email: data.email, smtpConfigured: !!process.env.SMTP_HOST };
 }
 
 export async function consumeMagicLink(token: string) {

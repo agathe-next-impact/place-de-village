@@ -95,15 +95,19 @@ export async function updateReservationStatus(
     })
     .run();
   if (next !== "annule") {
+    const equipement =
+      db.select().from(schema.equipements).where(eq(schema.equipements.id, r.equipementId)).get()?.nom ??
+      "équipement";
     await notify({
       userId: r.userId,
       kind: `reservation_${next}`,
-      titre:
-        next === "valide"
-          ? "Réservation validée"
-          : "Demande de réservation refusée",
+      titre: next === "valide" ? "Réservation validée" : "Demande de réservation refusée",
       body: refusMotif ?? r.motif,
       href: "/reservation",
+      emailData:
+        next === "valide"
+          ? { kind: "reservation_valide", equipement, href: "/reservation" }
+          : { kind: "reservation_refus", equipement, motif: refusMotif ?? null, href: "/reservation" },
     });
   }
   revalidatePath("/", "layout");

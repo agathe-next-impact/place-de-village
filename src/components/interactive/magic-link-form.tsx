@@ -8,7 +8,7 @@ import { requestMagicLink } from "@/lib/actions/auth";
 
 export function MagicLinkForm() {
   const [email, setEmail] = useState("");
-  const [sent, setSent] = useState<{ email: string; url: string } | null>(null);
+  const [sent, setSent] = useState<{ email: string; url: string; smtpConfigured: boolean } | null>(null);
   const [pending, start] = useTransition();
   const { show } = useToast();
 
@@ -22,21 +22,24 @@ export function MagicLinkForm() {
       {sent ? (
         <>
           <div className="mt-5 bg-success/10 border border-success/30 rounded-lg p-4 text-[13px] text-ink">
-            Si un compte est associé à <strong>{sent.email}</strong>, un lien de
-            connexion vient d'être envoyé. Il expire dans 15 minutes.
+            Un lien de connexion vient d'être envoyé à <strong>{sent.email}</strong>.
+            Il expire dans 15 minutes.
           </div>
-          <div className="mt-3 bg-accent-soft border border-accent/30 rounded-lg p-3 text-[12.5px] text-ink-soft">
-            <strong className="text-ink">Mode démo</strong> — pas d'email réel
-            envoyé. Utilisez ce lien pour vous connecter immédiatement :
-            <div className="mt-2">
-              <Link
-                href={sent.url}
-                className="inline-block bg-primary text-white px-3 py-2 rounded font-semibold underline"
-              >
-                Ouvrir le magic link
-              </Link>
+          {!sent.smtpConfigured && (
+            <div className="mt-3 bg-accent-soft border border-accent/30 rounded-lg p-3 text-[12.5px] text-ink-soft">
+              <strong className="text-ink">Mode démo</strong> — SMTP non configuré.
+              L'email a été capturé dans <code>data/outbox/</code>. Pour la démo,
+              cliquez :
+              <div className="mt-2">
+                <Link
+                  href={sent.url}
+                  className="inline-block bg-primary text-white px-3 py-2 rounded font-semibold underline"
+                >
+                  Ouvrir le magic link
+                </Link>
+              </div>
             </div>
-          </div>
+          )}
         </>
       ) : (
         <form
@@ -46,7 +49,7 @@ export function MagicLinkForm() {
             start(async () => {
               try {
                 const r = await requestMagicLink({ email: email.trim() });
-                setSent({ email: r.email, url: r.url });
+                setSent({ email: r.email, url: r.url, smtpConfigured: r.smtpConfigured });
                 show({ tone: "info", title: "Email envoyé", desc: "Vérifiez votre boîte (et vos spams)." });
               } catch (err) {
                 show({ tone: "danger", title: "Erreur", desc: String(err instanceof Error ? err.message : err) });

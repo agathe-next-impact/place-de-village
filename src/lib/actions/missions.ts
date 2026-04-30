@@ -74,6 +74,13 @@ export async function toggleRegistration(missionId: string) {
     titre: "Inscription confirmée",
     body: `${m.titre} — ${m.date} · ${m.lieu}. Rappel J-1 par email.`,
     href: `/missions/${m.id}`,
+    emailData: {
+      kind: "mission_inscription",
+      titre: m.titre,
+      date: m.date,
+      lieu: m.lieu,
+      href: `/missions/${m.id}`,
+    },
   });
   // Notifier le référent si renseigné
   if (m.refUserId && m.refUserId !== u.id) {

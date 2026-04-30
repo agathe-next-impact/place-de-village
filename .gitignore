@@ -10,3 +10,4 @@ coverage
 tsconfig.tsbuildinfo
 data/*.db
 data/*.db-*
+data/outbox/

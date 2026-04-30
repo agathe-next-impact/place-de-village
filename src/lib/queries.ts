@@ -424,3 +424,13 @@ export async function listOpenModerationFlags() {
     .orderBy(desc(schema.moderationFlags.at))
     .all();
 }
+
+// ─── Email queue ─────────────────────────────────────────────────────
+export async function listEmailQueue(limit = 50) {
+  return db
+    .select()
+    .from(schema.emailQueue)
+    .orderBy(desc(schema.emailQueue.createdAt))
+    .limit(limit)
+    .all();
+}

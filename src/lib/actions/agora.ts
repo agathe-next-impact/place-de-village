@@ -187,6 +187,11 @@ export async function toggleSupport(propositionId: string) {
         .from(schema.users)
         .where(sql`${schema.users.role} IN ('maire', 'referent')`)
         .all();
+      const updated = db
+        .select({ c: sql<number>`count(*)` })
+        .from(schema.supports)
+        .where(eq(schema.supports.propositionId, propositionId))
+        .get()?.c ?? p.seuil;
       for (const o of officials) {
         await notify({
           userId: o.id,
@@ -194,6 +199,12 @@ export async function toggleSupport(propositionId: string) {
           titre: "Proposition citoyenne : seuil atteint",
           body: `« ${p.titre} » — réponse formelle à publier sous 60 jours.`,
           href: `/propositions/${propositionId}`,
+          emailData: {
+            kind: "proposition_seuil",
+            titre: p.titre,
+            soutiens: updated,
+            href: `/propositions/${propositionId}`,
+          },
         });
       }
     }

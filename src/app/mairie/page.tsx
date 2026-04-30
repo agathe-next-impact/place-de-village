@@ -62,7 +62,7 @@ export default async function Page() {
       <Section
         title="À traiter"
         action={
-          <div className="flex gap-3 text-[12px]">
+          <div className="flex flex-wrap gap-2.5 text-[12px] justify-end">
             <Link href="/mairie/reservations" className="no-underline text-primary font-semibold">
               Réservations →
             </Link>
@@ -73,6 +73,9 @@ export default async function Page() {
                   {modFlags.length}
                 </span>
               )}
+            </Link>
+            <Link href="/mairie/emails" className="no-underline text-primary font-semibold">
+              Emails →
             </Link>
           </div>
         }

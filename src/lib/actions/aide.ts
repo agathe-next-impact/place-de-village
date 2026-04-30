@@ -96,6 +96,12 @@ export async function sendMessage(input: z.infer<typeof NewMessage>) {
     titre: `Nouveau message de ${u.name}`,
     body: data.body.slice(0, 80),
     href: `/messages/${data.conversationId}`,
+    emailData: {
+      kind: "new_message",
+      fromName: u.name,
+      preview: data.body.slice(0, 200),
+      href: `/messages/${data.conversationId}`,
+    },
   });
   revalidatePath(`/messages/${data.conversationId}`);
   revalidatePath("/messages");

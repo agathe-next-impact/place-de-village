@@ -73,7 +73,7 @@ export const consents = sqliteTable(
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
     finality: text("finality", {
-      enum: ["contributions", "digest", "geoloc", "sms"],
+      enum: ["contributions", "digest", "geoloc", "sms", "transac_email"],
     }).notNull(),
     granted: integer("granted", { mode: "boolean" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" })
@@ -82,6 +82,40 @@ export const consents = sqliteTable(
   },
   (t) => ({
     pk: primaryKey({ columns: [t.userId, t.finality] }),
+  }),
+);
+
+/**
+ * File d'attente d'emails sortants. Tout passe par cette table pour
+ * garantir la durabilité (retry, audit, traçabilité d'envoi).
+ *
+ * Le worker (cron ou exécution synchrone après notify) consomme les
+ * lignes en `pending` et les pousse via SMTP. En mode démo sans SMTP
+ * configuré, le mailer écrit en outbox local + marque comme "captured".
+ */
+export const emailQueue = sqliteTable(
+  "email_queue",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    toAddress: text("to_address").notNull(),
+    toName: text("to_name"),
+    subject: text("subject").notNull(),
+    text: text("text").notNull(),
+    html: text("html"),
+    template: text("template").notNull(),
+    relatedEntity: text("related_entity"),
+    status: text("status", { enum: ["pending", "sent", "captured", "failed"] })
+      .notNull()
+      .default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    lastError: text("last_error"),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    sentAt: integer("sent_at", { mode: "timestamp" }),
+  },
+  (t) => ({
+    statusIdx: index("email_queue_status_idx").on(t.status),
   }),
 );
 

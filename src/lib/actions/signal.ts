@@ -127,6 +127,13 @@ export async function updateSignalementState(input: z.infer<typeof StateUpdate>)
     titre: `Votre signalement est ${labels[data.etat] ?? data.etat}`,
     body: data.comment ?? sig.titre,
     href: `/signalements/${sig.id}`,
+    emailData: {
+      kind: "signalement_state",
+      titre: sig.titre,
+      etatLabel: labels[data.etat] ?? data.etat,
+      comment: data.comment ?? null,
+      href: `/signalements/${sig.id}`,
+    },
   });
   revalidatePath("/", "layout");
   revalidatePath(`/signalements/${data.signalementId}`);
