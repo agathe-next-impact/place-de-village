@@ -6,9 +6,11 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Surface } from "@/components/ui/surface";
 import { Section } from "@/components/ui/section";
 import { Avatar } from "@/components/ui/avatar";
-import { getDiscussion } from "@/lib/queries";
+import { getCurrentUserPub, getDiscussion } from "@/lib/queries";
 import { PromoteButton } from "@/components/interactive/promote-button";
 import { ContributeForm } from "@/components/interactive/contribute-form";
+import { SynthesisForm } from "@/components/interactive/synthesis-form";
+import { FlagButton } from "@/components/interactive/flag-button";
 
 const TYPE_COLOR: Record<string, string> = {
   accord: "#7a8c3a",
@@ -28,8 +30,9 @@ const TYPE_LABEL: Record<string, string> = {
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const d = await getDiscussion(id);
+  const [d, me] = await Promise.all([getDiscussion(id), getCurrentUserPub()]);
   if (!d) notFound();
+  const canSynthesize = me.role !== "habitant";
 
   const segs = [
     { val: d.accord, color: "#7a8c3a", label: "accords" },
@@ -72,6 +75,34 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         </Surface>
       </div>
 
+      <Section title={`Synthèses (${d.synthesises.length})`}>
+        {d.synthesises.length === 0 ? (
+          <div className="text-[12.5px] text-ink-muted text-center py-2">
+            Aucune synthèse publiée pour l'instant.
+          </div>
+        ) : (
+          d.synthesises.slice(0, 3).map((s) => (
+            <Surface key={s.id} className="border-l-[3px] border-primary">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <FileText size={12} strokeWidth={1.6} className="text-primary" />
+                <span className="text-[10.5px] font-semibold uppercase tracking-eyebrow text-primary">
+                  Synthèse · {s.authorName}
+                </span>
+                <span className="text-[11px] text-ink-muted ml-auto">
+                  {s.publishedAt.toLocaleDateString("fr-FR")}
+                </span>
+              </div>
+              <div className="text-[13px] text-ink leading-[1.5] whitespace-pre-line">{s.texte}</div>
+            </Surface>
+          ))
+        )}
+        {canSynthesize && (
+          <div className="mt-2">
+            <SynthesisForm discussionId={d.id} />
+          </div>
+        )}
+      </Section>
+
       <Section title="Apporter une contribution">
         <Surface>
           <ContributeForm discussionId={d.id} />
@@ -96,6 +127,9 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
                   </span>
                 </div>
                 <div className="text-[13px] text-ink leading-[1.5]">{c.texte}</div>
+                <div className="mt-1.5">
+                  <FlagButton entityType="contribution" entityId={String(c.id)} />
+                </div>
               </div>
             </div>
           </Surface>

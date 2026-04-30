@@ -1,10 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq, ne } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/lib/db/client";
 import { getCurrentUser } from "@/lib/auth";
+import { notify } from "@/lib/actions/notifications";
 
 const NewReservation = z.object({
   equipementId: z.string(),
@@ -77,6 +78,8 @@ export async function updateReservationStatus(
   if (next !== "annule" && u.role !== "referent" && u.role !== "agent" && u.role !== "maire") {
     throw new Error("Validation réservée au référent municipal.");
   }
+  const r = db.select().from(schema.reservations).where(eq(schema.reservations.id, reservationId)).get();
+  if (!r) throw new Error("Réservation introuvable.");
   db.update(schema.reservations)
     .set({ statut: next, refusMotif: refusMotif ?? null })
     .where(eq(schema.reservations.id, reservationId))
@@ -91,5 +94,17 @@ export async function updateReservationStatus(
       details: refusMotif ?? null,
     })
     .run();
+  if (next !== "annule") {
+    await notify({
+      userId: r.userId,
+      kind: `reservation_${next}`,
+      titre:
+        next === "valide"
+          ? "Réservation validée"
+          : "Demande de réservation refusée",
+      body: refusMotif ?? r.motif,
+      href: "/reservation",
+    });
+  }
   revalidatePath("/", "layout");
 }

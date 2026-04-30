@@ -7,6 +7,7 @@ import {
   listAuditLog,
   listMairieAlerts,
   listMissions,
+  listOpenModerationFlags,
   pulse,
 } from "@/lib/queries";
 
@@ -18,11 +19,12 @@ const BENEVOLAT_AGGREGE = [
 ];
 
 export default async function Page() {
-  const [p, alerts, missions, audit] = await Promise.all([
+  const [p, alerts, missions, audit, modFlags] = await Promise.all([
     pulse(),
     listMairieAlerts(),
     listMissions(),
     listAuditLog(20),
+    listOpenModerationFlags(),
   ]);
 
   const benevHours = missions
@@ -59,7 +61,21 @@ export default async function Page() {
 
       <Section
         title="À traiter"
-        action={alerts.length > 0 ? <Link href="/mairie/reservations" className="no-underline">Réservations →</Link> : undefined}
+        action={
+          <div className="flex gap-3 text-[12px]">
+            <Link href="/mairie/reservations" className="no-underline text-primary font-semibold">
+              Réservations →
+            </Link>
+            <Link href="/mairie/moderation" className="no-underline text-primary font-semibold">
+              Modération
+              {modFlags.length > 0 && (
+                <span className="ml-1 px-1.5 py-px rounded-pill bg-danger text-white text-[10px] font-bold">
+                  {modFlags.length}
+                </span>
+              )}
+            </Link>
+          </div>
+        }
       >
         {alerts.length === 0 ? (
           <div className="text-[13px] text-ink-muted text-center py-2">

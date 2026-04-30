@@ -5,6 +5,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/lib/db/client";
 import { getCurrentUser } from "@/lib/auth";
+import { notify } from "@/lib/actions/notifications";
 
 const NewMission = z.object({
   titre: z.string().trim().min(5).max(120),
@@ -66,6 +67,24 @@ export async function toggleRegistration(missionId: string) {
     .get()?.c ?? 0;
   if (inscrits >= m.besoin) throw new Error("Mission complète.");
   db.insert(schema.missionRegistrations).values({ userId: u.id, missionId }).run();
+  // Confirmation immédiate
+  await notify({
+    userId: u.id,
+    kind: "mission_inscription",
+    titre: "Inscription confirmée",
+    body: `${m.titre} — ${m.date} · ${m.lieu}. Rappel J-1 par email.`,
+    href: `/missions/${m.id}`,
+  });
+  // Notifier le référent si renseigné
+  if (m.refUserId && m.refUserId !== u.id) {
+    await notify({
+      userId: m.refUserId,
+      kind: "mission_new_registration",
+      titre: "Nouvelle inscription bénévole",
+      body: `${u.name} sur « ${m.titre} »`,
+      href: `/missions/${m.id}`,
+    });
+  }
   revalidatePath("/", "layout");
   return { registered: true };
 }

@@ -7,6 +7,7 @@ import { Section } from "@/components/ui/section";
 import { Avatar } from "@/components/ui/avatar";
 import { listEntraide, getCurrentUserPub } from "@/lib/queries";
 import { OpenConversationButton } from "@/components/interactive/open-conversation-button";
+import { FlagButton } from "@/components/interactive/flag-button";
 
 type Filter = "tout" | "demande" | "offre";
 
@@ -109,11 +110,14 @@ export default async function Page({
                   {isMine ? (
                     <span className="text-[11.5px] text-ink-muted italic">Votre annonce</span>
                   ) : (
-                    <OpenConversationButton
-                      entraideId={e.id}
-                      label={isDemande ? "Aider" : "Contacter"}
-                      icon={<MessageSquare size={14} strokeWidth={1.6} />}
-                    />
+                    <div className="flex items-center gap-3">
+                      <FlagButton entityType="entraide" entityId={e.id} />
+                      <OpenConversationButton
+                        entraideId={e.id}
+                        label={isDemande ? "Aider" : "Contacter"}
+                        icon={<MessageSquare size={14} strokeWidth={1.6} />}
+                      />
+                    </div>
                   )}
                 </div>
               </Surface>

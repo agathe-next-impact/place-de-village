@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq, gt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, isNull, sql } from "drizzle-orm";
 import { db, schema } from "./db/client";
 import { getCurrentUser } from "./auth";
 
@@ -103,7 +103,13 @@ export async function getDiscussion(id: string) {
     .where(eq(schema.contributions.discussionId, id))
     .orderBy(desc(schema.contributions.at))
     .all();
-  return { ...d, list: contribs };
+  const synth = db
+    .select()
+    .from(schema.synthesises)
+    .where(eq(schema.synthesises.discussionId, id))
+    .orderBy(desc(schema.synthesises.publishedAt))
+    .all();
+  return { ...d, list: contribs, synthesises: synth };
 }
 
 // ─── Propositions ────────────────────────────────────────────────────
@@ -386,4 +392,35 @@ export async function listAllUsers() {
 export async function getCurrentUserPub() {
   const u = await getCurrentUser();
   return { id: u.id, name: u.name, role: u.role };
+}
+
+// ─── Notifications ───────────────────────────────────────────────────
+export async function listMyNotifications(limit = 30) {
+  const u = await getCurrentUser();
+  return db
+    .select()
+    .from(schema.notifications)
+    .where(eq(schema.notifications.userId, u.id))
+    .orderBy(desc(schema.notifications.at))
+    .limit(limit)
+    .all();
+}
+
+export async function countMyUnread() {
+  const u = await getCurrentUser();
+  return db
+    .select({ c: sql<number>`count(*)` })
+    .from(schema.notifications)
+    .where(and(eq(schema.notifications.userId, u.id), isNull(schema.notifications.readAt)))
+    .get()?.c ?? 0;
+}
+
+// ─── Modération ──────────────────────────────────────────────────────
+export async function listOpenModerationFlags() {
+  return db
+    .select()
+    .from(schema.moderationFlags)
+    .where(eq(schema.moderationFlags.status, "ouvert"))
+    .orderBy(desc(schema.moderationFlags.at))
+    .all();
 }

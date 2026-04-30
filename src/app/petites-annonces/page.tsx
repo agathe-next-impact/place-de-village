@@ -5,7 +5,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Surface } from "@/components/ui/surface";
 import { Section } from "@/components/ui/section";
 import { Chip } from "@/components/ui/chip";
-import { listPetitesAnnonces } from "@/lib/queries";
+import { listPetitesAnnonces, getCurrentUserPub } from "@/lib/queries";
+import { FlagButton } from "@/components/interactive/flag-button";
 
 const TYPE_LABEL: Record<string, string> = {
   don: "Don",
@@ -21,7 +22,7 @@ const TYPE_COLOR: Record<string, string> = {
 };
 
 export default async function Page() {
-  const items = await listPetitesAnnonces();
+  const [items, me] = await Promise.all([listPetitesAnnonces(), getCurrentUserPub()]);
   return (
     <ScreenShell>
       <PageHeader
@@ -60,8 +61,11 @@ export default async function Page() {
               {a.prix && (
                 <div className="text-[12.5px] text-ink mt-2 font-semibold">{a.prix}</div>
               )}
-              <div className="text-[11px] text-ink-muted mt-2">
-                {a.auteur} · expire le {a.expiresAt.toLocaleDateString("fr-FR")}
+              <div className="flex items-center justify-between mt-2">
+                <div className="text-[11px] text-ink-muted">
+                  {a.auteur} · expire le {a.expiresAt.toLocaleDateString("fr-FR")}
+                </div>
+                {a.auteurId !== me.id && <FlagButton entityType="petite_annonce" entityId={a.id} />}
               </div>
             </Surface>
           ))

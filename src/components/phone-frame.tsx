@@ -3,10 +3,19 @@
 // est une PWA mobile-first installable.
 
 import Link from "next/link";
+import { listAllUsers, getCurrentUserPub } from "@/lib/queries";
+import { RoleSwitcher } from "@/components/interactive/role-switcher";
 
-export function PhoneFrame({ children }: { children: React.ReactNode }) {
+export async function PhoneFrame({ children }: { children: React.ReactNode }) {
+  const [users, me] = await Promise.all([listAllUsers(), getCurrentUserPub()]);
   return (
-    <div className="min-h-screen w-full bg-bg flex items-center justify-center md:p-8">
+    <div className="min-h-screen w-full bg-bg flex flex-col items-center justify-center md:p-8 gap-3">
+      <div className="w-full max-w-[420px] flex justify-end px-2">
+        <RoleSwitcher
+          profiles={users.map((u) => ({ id: u.id, name: u.name, role: u.role }))}
+          currentId={me.id}
+        />
+      </div>
       <div
         className={[
           "relative w-full max-w-[420px] bg-bg",

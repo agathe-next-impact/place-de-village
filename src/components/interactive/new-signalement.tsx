@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   ArrowRight,
   Brush,
@@ -11,10 +12,12 @@ import {
   Send,
   Tag,
   TreeDeciduous,
+  TriangleAlert,
   Wrench,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Surface } from "@/components/ui/surface";
+import { Modal } from "@/components/ui/modal";
 import { PageHeader } from "@/components/ui/page-header";
 import { useToast } from "@/components/ui/toast";
 import { createSignalement } from "@/lib/actions/signal";
@@ -36,6 +39,10 @@ export function NewSignalementForm() {
     "Un nid-de-poule s'est creusé devant le n°12, dangereux pour les vélos.",
   );
   const [pending, start] = useTransition();
+  const [duplicates, setDuplicates] = useState<
+    Array<{ id: string; titre: string; loc: string; etat: string }>
+  >([]);
+  const [createdId, setCreatedId] = useState<string | null>(null);
   const { show } = useToast();
 
   const submit = () => {
@@ -51,19 +58,18 @@ export function NewSignalementForm() {
           description: desc,
         });
         if (r.duplicates.length > 0) {
-          show({
-            tone: "info",
-            title: "Possible doublon détecté",
-            desc: `${r.duplicates.length} signalement${r.duplicates.length > 1 ? "s" : ""} similaire${r.duplicates.length > 1 ? "s" : ""} en cours dans cette zone.`,
-          });
+          setCreatedId(r.id);
+          setDuplicates(
+            r.duplicates.map((d) => ({ id: d.id, titre: d.titre, loc: d.loc, etat: d.etat })),
+          );
         } else {
           show({
             tone: "success",
             title: "Signalement envoyé",
             desc: "Vous serez notifié·e à chaque changement d'état.",
           });
+          router.push(`/signalements/${r.id}`);
         }
-        router.push("/signalements");
       } catch (err) {
         show({ tone: "danger", title: "Erreur", desc: String(err instanceof Error ? err.message : err) });
       }
@@ -162,6 +168,53 @@ export function NewSignalementForm() {
           </div>
         </>
       )}
+
+      <Modal
+        open={duplicates.length > 0}
+        onClose={() => {
+          setDuplicates([]);
+          if (createdId) router.push(`/signalements/${createdId}`);
+        }}
+        title="Doublon possible détecté"
+        description="Un signalement similaire est déjà ouvert dans la même zone. Voulez-vous le consulter avant de continuer ?"
+        footer={
+          <>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setDuplicates([]);
+                if (createdId) router.push(`/signalements/${createdId}`);
+              }}
+            >
+              Garder mon signalement
+            </Button>
+          </>
+        }
+      >
+        <div className="flex items-start gap-2 mb-3 text-[12.5px] text-ink-soft">
+          <TriangleAlert size={16} strokeWidth={1.6} className="text-accent flex-shrink-0 mt-0.5" />
+          <span>
+            Votre signalement a bien été enregistré. Vous pouvez consulter le ou les signalements
+            existants pour suivre leur traitement, ou conserver le vôtre. Le service municipal
+            rapprochera les doublons côté traitement.
+          </span>
+        </div>
+        <ul className="space-y-2">
+          {duplicates.map((d) => (
+            <li key={d.id}>
+              <Link
+                href={`/signalements/${d.id}`}
+                className="block bg-surface-alt rounded p-2.5 no-underline"
+              >
+                <div className="font-semibold text-[13.5px] text-ink">{d.titre}</div>
+                <div className="text-[11.5px] text-ink-muted">
+                  {d.loc} · état : {d.etat}
+                </div>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </Modal>
     </div>
   );
 }

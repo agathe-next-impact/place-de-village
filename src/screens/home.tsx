@@ -12,6 +12,7 @@ import { Section } from "@/components/ui/section";
 import { Chip } from "@/components/ui/chip";
 import { TrizacMark } from "@/components/ui/trizac-mark";
 import {
+  countMyUnread,
   listAgenda,
   listAnnonces,
   listMissions,
@@ -27,12 +28,13 @@ const QUICK_ACTIONS = [
 ] as const;
 
 export async function HomeScreen() {
-  const [signalements, missions, propositions, agenda, annonces] = await Promise.all([
+  const [signalements, missions, propositions, agenda, annonces, unread] = await Promise.all([
     listSignalements(),
     listMissions(),
     listPropositions(),
     listAgenda(),
     listAnnonces(),
+    countMyUnread(),
   ]);
 
   const ouverts = signalements.filter((s) => s.etat !== "resolu").length;
@@ -53,11 +55,19 @@ export async function HomeScreen() {
         <div className="flex items-center justify-between mb-4">
           <TrizacMark />
           <Link
-            href="/messages"
-            aria-label="Messages"
-            className="w-9 h-9 rounded-pill bg-surface border border-line-soft flex items-center justify-center text-ink"
+            href="/notifications"
+            aria-label={`Notifications${unread > 0 ? ` (${unread} non lues)` : ""}`}
+            className="relative w-9 h-9 rounded-pill bg-surface border border-line-soft flex items-center justify-center text-ink"
           >
             <Bell size={16} strokeWidth={1.6} />
+            {unread > 0 && (
+              <span
+                aria-hidden
+                className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-pill bg-danger text-white text-[10px] font-bold flex items-center justify-center tabular-nums"
+              >
+                {unread > 9 ? "9+" : unread}
+              </span>
+            )}
           </Link>
         </div>
         <div className="text-[26px] font-bold leading-[1.15] tracking-title text-ink">

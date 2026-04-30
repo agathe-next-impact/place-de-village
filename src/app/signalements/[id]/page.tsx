@@ -6,7 +6,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Surface } from "@/components/ui/surface";
 import { Section } from "@/components/ui/section";
 import { Chip } from "@/components/ui/chip";
-import { getSignalement } from "@/lib/queries";
+import { getCurrentUserPub, getSignalement } from "@/lib/queries";
+import { SignalementStateUpdate } from "@/components/interactive/signalement-state-update";
 
 const ETAT_LABEL = {
   signale: "Signalé",
@@ -28,7 +29,7 @@ const ETAT_ORDER = ["signale", "pris-en-compte", "en-cours", "resolu"] as const;
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const s = await getSignalement(id);
+  const [s, me] = await Promise.all([getSignalement(id), getCurrentUserPub()]);
   if (!s) notFound();
 
   const Icon = ICON_BY_NAME[s.icon as keyof typeof ICON_BY_NAME] ?? MapPin;
@@ -36,6 +37,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   const currentIdx = ETAT_ORDER.indexOf(s.etat as (typeof ETAT_ORDER)[number]);
 
   const lastUpdate = s.history[s.history.length - 1];
+  const isAgent = me.role === "agent" || me.role === "referent" || me.role === "maire";
 
   return (
     <ScreenShell>
@@ -109,6 +111,21 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
           <div className="text-[11.5px] text-ink-soft italic">Dernier commentaire agent : « {lastUpdate.comment} »</div>
         )}
       </Section>
+
+      {isAgent && (
+        <Section title="Action agent municipal">
+          <Surface>
+            <SignalementStateUpdate
+              signalementId={s.id}
+              current={s.etat as "signale" | "pris-en-compte" | "en-cours" | "resolu"}
+            />
+          </Surface>
+          <div className="text-[11.5px] text-ink-muted">
+            Visible aux profils <strong>agent</strong>, <strong>référent</strong> et{" "}
+            <strong>maire</strong> uniquement. L'action est tracée dans le journal des décisions.
+          </div>
+        </Section>
+      )}
     </ScreenShell>
   );
 }

@@ -167,6 +167,61 @@ export const contributions = sqliteTable("contributions", {
     .default(sql`(unixepoch())`),
 });
 
+export const synthesises = sqliteTable("synthesises", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  discussionId: text("discussion_id")
+    .notNull()
+    .references(() => discussions.id, { onDelete: "cascade" }),
+  texte: text("texte").notNull(),
+  authorId: text("author_id")
+    .notNull()
+    .references(() => users.id),
+  authorName: text("author_name").notNull(),
+  publishedAt: integer("published_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+/**
+ * Modération a posteriori : signalement de contenu par un utilisateur.
+ * Cf. CdC §2.1 Pôle 4 + §2.1 Pôle 5 (annonces, petites annonces).
+ */
+export const moderationFlags = sqliteTable("moderation_flags", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  entityType: text("entity_type", {
+    enum: ["suggestion", "contribution", "entraide", "message", "petite_annonce"],
+  }).notNull(),
+  entityId: text("entity_id").notNull(),
+  reporterId: text("reporter_id")
+    .notNull()
+    .references(() => users.id),
+  reason: text("reason").notNull(),
+  status: text("status", { enum: ["ouvert", "traite", "ignore"] })
+    .notNull()
+    .default("ouvert"),
+  resolvedById: text("resolved_by_id").references(() => users.id),
+  resolvedAt: integer("resolved_at", { mode: "timestamp" }),
+  at: integer("at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+/** Notifications utilisateur. Cf. CdC §3.5 — pas de push v1. */
+export const notifications = sqliteTable("notifications", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  kind: text("kind").notNull(),
+  titre: text("titre").notNull(),
+  body: text("body"),
+  href: text("href"),
+  readAt: integer("read_at", { mode: "timestamp" }),
+  at: integer("at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
 export const propositions = sqliteTable("propositions", {
   id: text("id").primaryKey(),
   titre: text("titre").notNull(),

@@ -5,6 +5,7 @@ import { and, asc, eq, or } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/lib/db/client";
 import { getCurrentUser } from "@/lib/auth";
+import { notify } from "@/lib/actions/notifications";
 
 const NewEntraide = z.object({
   type: z.enum(["demande", "offre"]),
@@ -87,6 +88,15 @@ export async function sendMessage(input: z.infer<typeof NewMessage>) {
   db.insert(schema.messages)
     .values({ conversationId: data.conversationId, authorId: u.id, body: data.body })
     .run();
+  // Notification au destinataire
+  const otherId = conv.aId === u.id ? conv.bId : conv.aId;
+  await notify({
+    userId: otherId,
+    kind: "new_message",
+    titre: `Nouveau message de ${u.name}`,
+    body: data.body.slice(0, 80),
+    href: `/messages/${data.conversationId}`,
+  });
   revalidatePath(`/messages/${data.conversationId}`);
   revalidatePath("/messages");
 }

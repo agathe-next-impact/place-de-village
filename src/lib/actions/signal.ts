@@ -5,6 +5,7 @@ import { and, eq, like } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/lib/db/client";
 import { getCurrentUser } from "@/lib/auth";
+import { notify } from "@/lib/actions/notifications";
 
 const NewSignalement = z.object({
   type: z.string().min(1),
@@ -86,6 +87,12 @@ export async function updateSignalementState(input: z.infer<typeof StateUpdate>)
   if (u.role !== "agent" && u.role !== "referent" && u.role !== "maire") {
     throw new Error("Action réservée aux agents municipaux.");
   }
+  const sig = db
+    .select()
+    .from(schema.signalements)
+    .where(eq(schema.signalements.id, data.signalementId))
+    .get();
+  if (!sig) throw new Error("Signalement introuvable.");
   db.update(schema.signalements)
     .set({ etat: data.etat })
     .where(eq(schema.signalements.id, data.signalementId))
@@ -103,6 +110,20 @@ export async function updateSignalementState(input: z.infer<typeof StateUpdate>)
       details: `→ ${data.etat}${data.comment ? ` — ${data.comment}` : ""}`,
     })
     .run();
+  // Notification au signalant (CdC §2.1 Pôle 3 : notification à chaque
+  // changement d'état).
+  const labels: Record<string, string> = {
+    "pris-en-compte": "pris en compte",
+    "en-cours": "en cours de traitement",
+    resolu: "résolu",
+  };
+  await notify({
+    userId: sig.auteurId,
+    kind: "signalement_state",
+    titre: `Votre signalement est ${labels[data.etat] ?? data.etat}`,
+    body: data.comment ?? sig.titre,
+    href: `/signalements/${sig.id}`,
+  });
   revalidatePath("/", "layout");
   revalidatePath(`/signalements/${data.signalementId}`);
 }

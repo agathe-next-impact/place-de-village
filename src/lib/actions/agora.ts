@@ -5,6 +5,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { db, schema } from "@/lib/db/client";
 import { getCurrentUser } from "@/lib/auth";
+import { notify } from "@/lib/actions/notifications";
 
 const idAuthor = (n: string) => {
   const parts = n.split(" ");
@@ -180,10 +181,53 @@ export async function toggleSupport(propositionId: string) {
         .set({ statut: "reponse-mairie", reponseDate: "sous 60 j", joursRestants: 0 })
         .where(eq(schema.propositions.id, propositionId))
         .run();
+      // Alerte la mairie (tous les profils maire / référent)
+      const officials = db
+        .select()
+        .from(schema.users)
+        .where(sql`${schema.users.role} IN ('maire', 'referent')`)
+        .all();
+      for (const o of officials) {
+        await notify({
+          userId: o.id,
+          kind: "proposition_seuil",
+          titre: "Proposition citoyenne : seuil atteint",
+          body: `« ${p.titre} » — réponse formelle à publier sous 60 jours.`,
+          href: `/propositions/${propositionId}`,
+        });
+      }
     }
   }
   revalidatePath("/", "layout");
   return { supported: true };
+}
+
+const NewSynthesis = z.object({
+  discussionId: z.string(),
+  texte: z.string().trim().min(80).max(4000),
+});
+
+/** Publier une synthèse de discussion. Réservé aux référents et à l'animation. */
+export async function publishSynthesis(input: z.infer<typeof NewSynthesis>) {
+  const data = NewSynthesis.parse(input);
+  const u = await getCurrentUser();
+  if (u.role === "habitant") {
+    throw new Error("Seul·e un·e animateur·rice ou référent·e peut publier une synthèse.");
+  }
+  db.insert(schema.synthesises)
+    .values({ discussionId: data.discussionId, texte: data.texte, authorId: u.id, authorName: u.name })
+    .run();
+  // Met à jour le marqueur de date de dernière synthèse sur la discussion
+  const today = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long" }).format(new Date());
+  db.update(schema.discussions)
+    .set({ derniereSynth: today })
+    .where(eq(schema.discussions.id, data.discussionId))
+    .run();
+  db.insert(schema.auditLog)
+    .values({ actorId: u.id, actorName: u.name, action: "publish_synthesis", entityType: "discussion", entityId: data.discussionId })
+    .run();
+  revalidatePath("/", "layout");
+  revalidatePath(`/discussions/${data.discussionId}`);
 }
 
 /** Validation d'une proposition par référent municipal (passe en soutien). */
