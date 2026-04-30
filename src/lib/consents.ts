@@ -14,31 +14,31 @@ export type Finality = "contributions" | "digest" | "geoloc" | "sms" | "transac_
  * du service municipal et sont indispensables à son fonctionnement.
  */
 export async function hasConsent(userId: string, finality: Finality, defaultValue = false) {
-  const row = db
+  const row = await db
     .select()
     .from(schema.consents)
     .where(and(eq(schema.consents.userId, userId), eq(schema.consents.finality, finality)))
-    .get();
+    .then(r => r[0]);
   if (!row) return defaultValue;
   return Boolean(row.granted);
 }
 
 export async function setConsent(userId: string, finality: Finality, granted: boolean) {
-  const existing = db
+  const existing = await db
     .select()
     .from(schema.consents)
     .where(and(eq(schema.consents.userId, userId), eq(schema.consents.finality, finality)))
-    .get();
+    .then(r => r[0]);
   if (existing) {
-    db.update(schema.consents)
+    await db.update(schema.consents)
       .set({ granted, updatedAt: new Date() })
       .where(and(eq(schema.consents.userId, userId), eq(schema.consents.finality, finality)))
-      .run();
+      ;
   } else {
-    db.insert(schema.consents).values({ userId, finality, granted, updatedAt: new Date() }).run();
+    await db.insert(schema.consents).values({ userId, finality, granted, updatedAt: new Date() });
   }
 }
 
 export async function listConsents(userId: string) {
-  return db.select().from(schema.consents).where(eq(schema.consents.userId, userId)).all();
+  return await db.select().from(schema.consents).where(eq(schema.consents.userId, userId));
 }

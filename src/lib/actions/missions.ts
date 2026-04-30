@@ -26,17 +26,17 @@ export async function createMission(input: z.infer<typeof NewMission>) {
     throw new Error("Réservé aux référents associatifs ou aux agents municipaux.");
   }
   const id = `m-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`;
-  db.insert(schema.missions).values({ id, ...data, refUserId: u.id }).run();
-  db.insert(schema.auditLog)
+  await db.insert(schema.missions).values({ id, ...data, refUserId: u.id });
+  await db.insert(schema.auditLog)
     .values({ actorId: u.id, actorName: u.name, action: "create", entityType: "mission", entityId: id, details: data.titre.slice(0, 80) })
-    .run();
+    ;
   revalidatePath("/", "layout");
   return { id };
 }
 
 export async function toggleRegistration(missionId: string) {
   const u = await getCurrentUser();
-  const existing = db
+  const existing = await db
     .select()
     .from(schema.missionRegistrations)
     .where(
@@ -45,29 +45,32 @@ export async function toggleRegistration(missionId: string) {
         eq(schema.missionRegistrations.missionId, missionId),
       ),
     )
-    .get();
+    .then(r => r[0]);
   if (existing) {
-    db.delete(schema.missionRegistrations)
+    await db.delete(schema.missionRegistrations)
       .where(
         and(
           eq(schema.missionRegistrations.userId, u.id),
           eq(schema.missionRegistrations.missionId, missionId),
         ),
       )
-      .run();
+      ;
     revalidatePath("/", "layout");
     return { registered: false };
   }
   // Refus si la mission est complète
-  const m = db.select().from(schema.missions).where(eq(schema.missions.id, missionId)).get();
+  const m = await db.select().from(schema.missions).where(eq(schema.missions.id, missionId)).then(r => r[0]);
   if (!m) throw new Error("Mission introuvable");
-  const inscrits = db
-    .select({ c: sql<number>`count(*)` })
-    .from(schema.missionRegistrations)
-    .where(eq(schema.missionRegistrations.missionId, missionId))
-    .get()?.c ?? 0;
+  const inscrits = Number(
+    (
+      await db
+        .select({ c: sql<number>`count(*)::int` })
+        .from(schema.missionRegistrations)
+        .where(eq(schema.missionRegistrations.missionId, missionId))
+    )[0]?.c ?? 0,
+  );
   if (inscrits >= m.besoin) throw new Error("Mission complète.");
-  db.insert(schema.missionRegistrations).values({ userId: u.id, missionId }).run();
+  await db.insert(schema.missionRegistrations).values({ userId: u.id, missionId });
   // Confirmation immédiate
   await notify({
     userId: u.id,

@@ -15,15 +15,15 @@ const NewFlag = z.object({
 export async function flagContent(input: z.infer<typeof NewFlag>) {
   const data = NewFlag.parse(input);
   const u = await getCurrentUser();
-  db.insert(schema.moderationFlags)
+  await db.insert(schema.moderationFlags)
     .values({
       entityType: data.entityType,
       entityId: data.entityId,
       reporterId: u.id,
       reason: data.reason,
     })
-    .run();
-  db.insert(schema.auditLog)
+    ;
+  await db.insert(schema.auditLog)
     .values({
       actorId: u.id,
       actorName: u.name,
@@ -32,7 +32,7 @@ export async function flagContent(input: z.infer<typeof NewFlag>) {
       entityId: data.entityId,
       details: data.reason.slice(0, 80),
     })
-    .run();
+    ;
   revalidatePath("/mairie", "layout");
 }
 
@@ -41,11 +41,11 @@ export async function resolveFlag(flagId: number, status: "traite" | "ignore") {
   if (u.role !== "referent" && u.role !== "maire") {
     throw new Error("Réservé au référent municipal.");
   }
-  db.update(schema.moderationFlags)
+  await db.update(schema.moderationFlags)
     .set({ status, resolvedById: u.id, resolvedAt: new Date() })
     .where(eq(schema.moderationFlags.id, flagId))
-    .run();
-  db.insert(schema.auditLog)
+    ;
+  await db.insert(schema.auditLog)
     .values({
       actorId: u.id,
       actorName: u.name,
@@ -53,6 +53,6 @@ export async function resolveFlag(flagId: number, status: "traite" | "ignore") {
       entityType: "moderation_flag",
       entityId: String(flagId),
     })
-    .run();
+    ;
   revalidatePath("/mairie", "layout");
 }

@@ -34,7 +34,7 @@ export default async function Page({
   const q = (sp.q ?? "").trim();
   const filter = sp.type as SearchEntityType | undefined;
   const hits = q
-    ? searchAll(q, filter ? { types: [filter], limit: 60 } : { limit: 60 })
+    ? await searchAll(q, filter ? { types: [filter], limit: 60 } : { limit: 60 })
     : [];
 
   // Group by type for display

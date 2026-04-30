@@ -23,12 +23,12 @@ export async function createSuggestion(input: z.infer<typeof NewIdea>) {
   const data = NewIdea.parse(input);
   const u = await getCurrentUser();
   const id = `idx-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`;
-  db.insert(schema.suggestions)
+  await db.insert(schema.suggestions)
     .values({ id, titre: data.titre, cat: data.cat, auteurId: u.id, auteur: idAuthor(u.name) })
-    .run();
-  db.insert(schema.auditLog)
+    ;
+  await db.insert(schema.auditLog)
     .values({ actorId: u.id, actorName: u.name, action: "create", entityType: "suggestion", entityId: id, details: data.titre.slice(0, 80) })
-    .run();
+    ;
   indexEntity({
     entityType: "suggestion",
     entityId: id,
@@ -42,7 +42,7 @@ export async function createSuggestion(input: z.infer<typeof NewIdea>) {
 
 export async function toggleSignal(suggestionId: string, type: "vis" | "important" | "contribuer") {
   const u = await getCurrentUser();
-  const existing = db
+  const existing = await db
     .select()
     .from(schema.signalEmissions)
     .where(
@@ -52,9 +52,9 @@ export async function toggleSignal(suggestionId: string, type: "vis" | "importan
         eq(schema.signalEmissions.type, type),
       ),
     )
-    .get();
+    .then(r => r[0]);
   if (existing) {
-    db.delete(schema.signalEmissions)
+    await db.delete(schema.signalEmissions)
       .where(
         and(
           eq(schema.signalEmissions.userId, u.id),
@@ -62,11 +62,11 @@ export async function toggleSignal(suggestionId: string, type: "vis" | "importan
           eq(schema.signalEmissions.type, type),
         ),
       )
-      .run();
+      ;
     revalidatePath("/", "layout");
     return { added: false };
   }
-  db.insert(schema.signalEmissions).values({ userId: u.id, suggestionId, type }).run();
+  await db.insert(schema.signalEmissions).values({ userId: u.id, suggestionId, type });
   revalidatePath("/", "layout");
   return { added: true };
 }
@@ -81,7 +81,7 @@ const NewContribution = z.object({
 export async function addContribution(input: z.infer<typeof NewContribution>) {
   const data = NewContribution.parse(input);
   const u = await getCurrentUser();
-  db.insert(schema.contributions)
+  await db.insert(schema.contributions)
     .values({
       discussionId: data.discussionId,
       type: data.type,
@@ -89,22 +89,22 @@ export async function addContribution(input: z.infer<typeof NewContribution>) {
       auteurId: u.id,
       auteur: idAuthor(u.name),
     })
-    .run();
+    ;
   // Recalcul de la maturité : ≥ 15 contribs et au moins une objection traitée et synthèse
-  const counts = db
+  const counts = await db
     .select({ c: sql<number>`count(*)` })
     .from(schema.contributions)
     .where(eq(schema.contributions.discussionId, data.discussionId))
-    .get();
+    .then(r => r[0]);
   if ((counts?.c ?? 0) >= 15) {
-    db.update(schema.discussions)
+    await db.update(schema.discussions)
       .set({ mature: true })
       .where(eq(schema.discussions.id, data.discussionId))
-      .run();
+      ;
   }
-  db.insert(schema.auditLog)
+  await db.insert(schema.auditLog)
     .values({ actorId: u.id, actorName: u.name, action: "contribute", entityType: "discussion", entityId: data.discussionId, details: data.type })
-    .run();
+    ;
   revalidatePath("/", "layout");
   revalidatePath(`/discussions/${data.discussionId}`);
 }
@@ -124,16 +124,16 @@ export async function promoteToProposition(input: z.infer<typeof Promote>) {
   const u = await getCurrentUser();
   // Vérification que la discussion est mature (séparation des rôles : qui
   // propose ne valide pas — on stocke en "instruction" jusqu'à validation)
-  const disc = db
+  const disc = await db
     .select()
     .from(schema.discussions)
     .where(eq(schema.discussions.id, data.discussionId))
-    .get();
+    .then(r => r[0]);
   if (!disc) throw new Error("Discussion introuvable");
   if (!disc.mature) throw new Error("La discussion n'est pas suffisamment mûre.");
 
   const id = `p-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`;
-  db.insert(schema.propositions)
+  await db.insert(schema.propositions)
     .values({
       id,
       titre: data.titre,
@@ -146,8 +146,8 @@ export async function promoteToProposition(input: z.infer<typeof Promote>) {
       joursRestants: 21,
       statut: "instruction",
     })
-    .run();
-  db.insert(schema.auditLog)
+    ;
+  await db.insert(schema.auditLog)
     .values({
       actorId: u.id,
       actorName: u.name,
@@ -156,7 +156,7 @@ export async function promoteToProposition(input: z.infer<typeof Promote>) {
       entityId: id,
       details: `Issue de discussion ${data.discussionId}`,
     })
-    .run();
+    ;
   indexEntity({
     entityType: "proposition",
     entityId: id,
@@ -170,43 +170,46 @@ export async function promoteToProposition(input: z.infer<typeof Promote>) {
 
 export async function toggleSupport(propositionId: string) {
   const u = await getCurrentUser();
-  const existing = db
+  const existing = await db
     .select()
     .from(schema.supports)
     .where(and(eq(schema.supports.userId, u.id), eq(schema.supports.propositionId, propositionId)))
-    .get();
+    .then(r => r[0]);
   if (existing) {
-    db.delete(schema.supports)
+    await db.delete(schema.supports)
       .where(and(eq(schema.supports.userId, u.id), eq(schema.supports.propositionId, propositionId)))
-      .run();
+      ;
     revalidatePath("/", "layout");
     return { supported: false };
   }
-  db.insert(schema.supports).values({ userId: u.id, propositionId }).run();
+  await db.insert(schema.supports).values({ userId: u.id, propositionId });
   // Recalcul du statut : passage en "reponse-mairie" si seuil atteint
-  const p = db.select().from(schema.propositions).where(eq(schema.propositions.id, propositionId)).get();
+  const p = await db.select().from(schema.propositions).where(eq(schema.propositions.id, propositionId)).then(r => r[0]);
   if (p) {
-    const cnt = db
+    const cnt = await db
       .select({ c: sql<number>`count(*)` })
       .from(schema.supports)
       .where(eq(schema.supports.propositionId, propositionId))
-      .get();
+      .then(r => r[0]);
     if ((cnt?.c ?? 0) >= p.seuil && p.statut === "soutien") {
-      db.update(schema.propositions)
+      await db.update(schema.propositions)
         .set({ statut: "reponse-mairie", reponseDate: "sous 60 j", joursRestants: 0 })
         .where(eq(schema.propositions.id, propositionId))
-        .run();
+        ;
       // Alerte la mairie (tous les profils maire / référent)
-      const officials = db
+      const officials = await db
         .select()
         .from(schema.users)
         .where(sql`${schema.users.role} IN ('maire', 'referent')`)
-        .all();
-      const updated = db
-        .select({ c: sql<number>`count(*)` })
-        .from(schema.supports)
-        .where(eq(schema.supports.propositionId, propositionId))
-        .get()?.c ?? p.seuil;
+        ;
+      const updated = Number(
+        (
+          await db
+            .select({ c: sql<number>`count(*)::int` })
+            .from(schema.supports)
+            .where(eq(schema.supports.propositionId, propositionId))
+        )[0]?.c ?? p.seuil,
+      );
       for (const o of officials) {
         await notify({
           userId: o.id,
@@ -240,18 +243,18 @@ export async function publishSynthesis(input: z.infer<typeof NewSynthesis>) {
   if (u.role === "habitant") {
     throw new Error("Seul·e un·e animateur·rice ou référent·e peut publier une synthèse.");
   }
-  db.insert(schema.synthesises)
+  await db.insert(schema.synthesises)
     .values({ discussionId: data.discussionId, texte: data.texte, authorId: u.id, authorName: u.name })
-    .run();
+    ;
   // Met à jour le marqueur de date de dernière synthèse sur la discussion
   const today = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long" }).format(new Date());
-  db.update(schema.discussions)
+  await db.update(schema.discussions)
     .set({ derniereSynth: today })
     .where(eq(schema.discussions.id, data.discussionId))
-    .run();
-  db.insert(schema.auditLog)
+    ;
+  await db.insert(schema.auditLog)
     .values({ actorId: u.id, actorName: u.name, action: "publish_synthesis", entityType: "discussion", entityId: data.discussionId })
-    .run();
+    ;
   revalidatePath("/", "layout");
   revalidatePath(`/discussions/${data.discussionId}`);
 }
@@ -261,12 +264,12 @@ export async function validateProposition(propositionId: string) {
   const u = await getCurrentUser();
   if (u.role !== "referent" && u.role !== "maire")
     throw new Error("Action réservée au référent municipal.");
-  db.update(schema.propositions)
+  await db.update(schema.propositions)
     .set({ statut: "soutien" })
     .where(eq(schema.propositions.id, propositionId))
-    .run();
-  db.insert(schema.auditLog)
+    ;
+  await db.insert(schema.auditLog)
     .values({ actorId: u.id, actorName: u.name, action: "validate", entityType: "proposition", entityId: propositionId })
-    .run();
+    ;
   revalidatePath("/", "layout");
 }

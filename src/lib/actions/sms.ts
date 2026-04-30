@@ -38,10 +38,10 @@ export async function updatePhoneAndConsent(input: z.infer<typeof PhoneUpdate>) 
   const normalised = data.phone
     ? data.phone.replace(/[ .-]/g, "").replace(/^0/, "+33")
     : null;
-  db.update(schema.users)
+  await db.update(schema.users)
     .set({ phone: normalised })
     .where(eq(schema.users.id, u.id))
-    .run();
+    ;
   if (data.smsConsent != null) {
     await setConsent(u.id, "sms", data.smsConsent);
   }

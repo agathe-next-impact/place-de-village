@@ -21,7 +21,7 @@ export async function notify(args: {
   /** Données structurées pour le template email associé. */
   emailData?: EmailData;
 }) {
-  db.insert(schema.notifications)
+  await db.insert(schema.notifications)
     .values({
       userId: args.userId,
       kind: args.kind,
@@ -29,7 +29,7 @@ export async function notify(args: {
       body: args.body ?? null,
       href: args.href ?? null,
     })
-    .run();
+    ;
 
   // Routing vers le template email approprié
   const rendered = renderForKind(args);
@@ -106,10 +106,10 @@ function renderForKind(args: { kind: string; titre: string; body?: string; href?
 
 export async function markAllRead() {
   const u = await getCurrentUser();
-  db.update(schema.notifications)
+  await db.update(schema.notifications)
     .set({ readAt: new Date() })
     .where(and(eq(schema.notifications.userId, u.id), isNull(schema.notifications.readAt)))
-    .run();
+    ;
   revalidatePath("/notifications");
   revalidatePath("/", "layout");
 }

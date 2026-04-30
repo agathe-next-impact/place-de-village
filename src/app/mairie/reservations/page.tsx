@@ -7,7 +7,7 @@ import { desc, eq } from "drizzle-orm";
 import { ReservationDecision } from "@/components/interactive/reservation-decision";
 
 export default async function Page() {
-  const all = db
+  const all = await db
     .select({
       r: schema.reservations,
       eqNom: schema.equipements.nom,
@@ -15,7 +15,7 @@ export default async function Page() {
     .from(schema.reservations)
     .leftJoin(schema.equipements, eq(schema.reservations.equipementId, schema.equipements.id))
     .orderBy(desc(schema.reservations.createdAt))
-    .all();
+    ;
 
   return (
     <ScreenShell>

@@ -27,15 +27,15 @@ const Register = z.object({
 
 export async function registerUser(input: z.infer<typeof Register>) {
   const data = Register.parse(input);
-  const existing = db.select().from(schema.users).where(eq(schema.users.email, data.email)).get();
+  const existing = await db.select().from(schema.users).where(eq(schema.users.email, data.email)).then(r => r[0]);
   if (existing) {
     throw new Error("Un compte existe déjà pour cette adresse email.");
   }
   const id = `u-${randomBytes(8).toString("hex")}`;
   const hash = await hashPassword(data.password);
-  db.insert(schema.users)
+  await db.insert(schema.users)
     .values({ id, email: data.email, name: data.name, role: "habitant", passwordHash: hash })
-    .run();
+    ;
   const ua = (await headers()).get("user-agent") ?? null;
   await createSession(id, ua ?? undefined);
   // Email de bienvenue
@@ -61,7 +61,7 @@ const Login = z.object({
 
 export async function loginUser(input: z.infer<typeof Login>) {
   const data = Login.parse(input);
-  const u = db.select().from(schema.users).where(eq(schema.users.email, data.email)).get();
+  const u = await db.select().from(schema.users).where(eq(schema.users.email, data.email)).then(r => r[0]);
   // Refus volontairement neutre pour ne pas révéler si l'email existe
   const generic = "Identifiants invalides.";
   if (!u || !u.passwordHash) throw new Error(generic);
@@ -120,7 +120,7 @@ export async function logout() {
  * À supprimer en production ou conditionner à NODE_ENV === 'development'.
  */
 export async function switchUser(userId: string) {
-  const u = db.select().from(schema.users).where(eq(schema.users.id, userId)).get();
+  const u = await db.select().from(schema.users).where(eq(schema.users.id, userId)).then(r => r[0]);
   if (!u) throw new Error("Utilisateur introuvable.");
   await destroyCurrentSession();
   const ua = (await headers()).get("user-agent") ?? null;

@@ -1,26 +1,23 @@
-// NB : pas d'`import "server-only"` ici — ce fichier est aussi importé
-// par le script de seed CLI (tsx). La frontière serveur est assurée
-// par better-sqlite3, qui n'est jamais chargeable côté client.
-import Database from "better-sqlite3";
-import path from "node:path";
+import { sql } from "drizzle-orm";
+import { db } from "@/lib/db/client";
 
 /**
- * Recherche full-text sur les contenus citoyens, via SQLite FTS5
- * intégré (zéro infrastructure supplémentaire). Couvre :
+ * Recherche full-text Postgres native — `tsvector` + index GIN +
+ * extension `pg_trgm`, créés par drizzle/0001_fts.sql.
  *
- *   - ccm           — comptes rendus de conseil municipal
- *   - suggestion    — idées Agora
- *   - proposition   — propositions citoyennes
- *   - annonce       — annonces officielles mairie
- *   - signalement   — signalements pratiques
- *   - petite_annonce — petites annonces locales
+ * Aucune table d'indexation séparée : la recherche se fait
+ * directement sur suggestions / propositions / ccm / annonces /
+ * signalements / petites_annonces, qui exposent une colonne `search`
+ * `GENERATED ALWAYS … STORED`. Postgres maintient l'index à
+ * l'INSERT/UPDATE — pas de hook applicatif nécessaire.
  *
- * Tokenizer `unicode61 remove_diacritics 2` : insensible à la casse
- * et aux accents. BM25 par défaut. Snippet avec markup `<mark>`
- * pour le highlighting.
+ * Classement via `ts_rank_cd`, snippet via `ts_headline` avec
+ * markup `<mark>` pour le highlighting.
  *
- * Migration future possible vers Meilisearch / Typesense en gardant
- * l'API de ce module — voir README, section « Recherche ».
+ * `websearch_to_tsquery` interprète une requête style moteur de
+ * recherche grand public (espace = AND, `OR`, `-mot`…). C'est
+ * directement utilisable depuis l'input utilisateur sans escaping
+ * supplémentaire.
  */
 
 export type SearchEntityType =
@@ -40,117 +37,139 @@ export type SearchHit = {
   rank: number;
 };
 
-// On utilise un client better-sqlite3 dédié pour pouvoir exécuter
-// des requêtes FTS5 brutes (Drizzle ne sait pas modéliser les tables
-// virtuelles).
-const dbPath = path.resolve(process.cwd(), "data/trizac.db");
-let cached: Database.Database | null = null;
-function getDb() {
-  if (cached) return cached;
-  cached = new Database(dbPath);
-  cached.pragma("journal_mode = WAL");
-  return cached;
-}
-
-/**
- * Échappe une requête utilisateur en syntaxe FTS5 sûre. On encadre
- * chaque token alphanumérique par des guillemets pour neutraliser
- * les opérateurs (NEAR, OR, AND, NOT, ^, *, etc.) tout en autorisant
- * la recherche multi-mots.
- */
 export function safeFtsQuery(raw: string): string {
-  // NFC garde les caractères accentués composés en un seul codepoint
-  // (« é », « à », …). NFKD les décomposerait en lettre + accent
-  // combinant et le filtre `\p{L}` couperait les mots en deux.
-  const tokens = raw
-    .normalize("NFC")
-    .replace(/[^\p{L}\p{N}\s'-]/gu, " ")
-    .split(/\s+/)
-    .filter((t) => t.length >= 2)
-    .map((t) => `"${t.replace(/"/g, '""')}"`);
-  if (tokens.length === 0) return "";
-  // tous les tokens en AND implicite + match préfixe sur le dernier
-  // pour rendre la recherche progressive plus naturelle
-  const last = tokens.pop()!;
-  return [...tokens, `${last}*`].join(" ");
+  return raw.normalize("NFC").trim();
 }
 
-export type SearchOptions = {
-  types?: SearchEntityType[];
-  limit?: number;
-};
+const ALL_TYPES: SearchEntityType[] = [
+  "suggestion",
+  "proposition",
+  "ccm",
+  "annonce",
+  "signalement",
+  "petite_annonce",
+];
 
-export function searchAll(query: string, opts: SearchOptions = {}): SearchHit[] {
-  const fts = safeFtsQuery(query);
-  if (!fts) return [];
-  const db = getDb();
-  const limit = Math.min(opts.limit ?? 30, 100);
-  let sql = `
-    SELECT
-      entity_type AS entityType,
-      entity_id AS entityId,
-      href,
-      title,
-      snippet(search_index, 4, '<mark>', '</mark>', '…', 12) AS snippet,
-      bm25(search_index) AS rank
-    FROM search_index
-    WHERE search_index MATCH ?
-  `;
-  const params: unknown[] = [fts];
-  if (opts.types && opts.types.length > 0) {
-    sql +=
-      " AND entity_type IN (" + opts.types.map(() => "?").join(",") + ")";
-    params.push(...opts.types);
+const HEADLINE_OPTS =
+  "StartSel=<mark>, StopSel=</mark>, MaxFragments=1, MaxWords=12, MinWords=3";
+
+function partSql(t: SearchEntityType, q: string) {
+  // Chaque sous-requête a son propre param $1 via le template `sql` :
+  // postgres-js renumérote correctement à la concaténation.
+  switch (t) {
+    case "suggestion":
+      return sql`
+        SELECT 'suggestion'::text AS entity_type, id::text AS entity_id,
+               '/idees/' || id AS href, titre AS title,
+               ts_headline('french', titre, websearch_to_tsquery('french', ${q}),
+                 ${HEADLINE_OPTS}) AS snippet,
+               ts_rank_cd(search, websearch_to_tsquery('french', ${q})) AS rank
+        FROM suggestions
+        WHERE search @@ websearch_to_tsquery('french', ${q})
+      `;
+    case "proposition":
+      return sql`
+        SELECT 'proposition'::text, id::text, '/propositions/' || id, titre,
+               ts_headline('french', coalesce(proposition, titre),
+                 websearch_to_tsquery('french', ${q}), ${HEADLINE_OPTS}),
+               ts_rank_cd(search, websearch_to_tsquery('french', ${q}))
+        FROM propositions
+        WHERE search @@ websearch_to_tsquery('french', ${q})
+      `;
+    case "ccm":
+      return sql`
+        SELECT 'ccm'::text, id::text, '/conseil-municipal', titre,
+               ts_headline('french', body, websearch_to_tsquery('french', ${q}),
+                 ${HEADLINE_OPTS}),
+               ts_rank_cd(search, websearch_to_tsquery('french', ${q}))
+        FROM ccm
+        WHERE search @@ websearch_to_tsquery('french', ${q})
+      `;
+    case "annonce":
+      return sql`
+        SELECT 'annonce'::text, id::text, '/', titre,
+               ts_headline('french', coalesce(body, resume),
+                 websearch_to_tsquery('french', ${q}), ${HEADLINE_OPTS}),
+               ts_rank_cd(search, websearch_to_tsquery('french', ${q}))
+        FROM annonces
+        WHERE search @@ websearch_to_tsquery('french', ${q})
+      `;
+    case "signalement":
+      return sql`
+        SELECT 'signalement'::text, id::text, '/signalements/' || id, titre,
+               ts_headline('french', coalesce(description, loc),
+                 websearch_to_tsquery('french', ${q}), ${HEADLINE_OPTS}),
+               ts_rank_cd(search, websearch_to_tsquery('french', ${q}))
+        FROM signalements
+        WHERE search @@ websearch_to_tsquery('french', ${q})
+      `;
+    case "petite_annonce":
+      return sql`
+        SELECT 'petite_annonce'::text, id::text, '/petites-annonces', titre,
+               ts_headline('french', description,
+                 websearch_to_tsquery('french', ${q}), ${HEADLINE_OPTS}),
+               ts_rank_cd(search, websearch_to_tsquery('french', ${q}))
+        FROM petites_annonces
+        WHERE search @@ websearch_to_tsquery('french', ${q})
+          AND closed = false AND expires_at > now()
+      `;
   }
-  sql += " ORDER BY rank LIMIT ?";
-  params.push(limit);
-  return db.prepare(sql).all(...params) as SearchHit[];
 }
 
-// ─── Mutations de l'index ─────────────────────────────────────────────
+export async function searchAll(
+  query: string,
+  opts: { types?: SearchEntityType[]; limit?: number } = {},
+): Promise<SearchHit[]> {
+  const q = safeFtsQuery(query);
+  if (!q) return [];
+  const limit = Math.min(opts.limit ?? 30, 100);
+  const types = opts.types && opts.types.length > 0 ? opts.types : ALL_TYPES;
+  const parts = types.map((t) => partSql(t, q));
+  // sql.join concatène en gérant correctement les paramètres bind
+  const union = sql.join(parts, sql` UNION ALL `);
+  const rows = (await db.execute(sql`
+    WITH r AS (${union})
+    SELECT entity_type AS "entityType", entity_id AS "entityId",
+           href, title, snippet, rank
+    FROM r
+    ORDER BY rank DESC
+    LIMIT ${limit}
+  `)) as unknown as Array<{
+    entityType: SearchEntityType;
+    entityId: string;
+    href: string;
+    title: string;
+    snippet: string;
+    rank: number | string;
+  }>;
+  return rows.map((r) => ({
+    entityType: r.entityType,
+    entityId: r.entityId,
+    href: r.href,
+    title: r.title,
+    snippet: r.snippet,
+    rank: Number(r.rank),
+  }));
+}
 
-export function indexEntity(args: {
+// Pas de mutation côté app : tsvector est maintenu par Postgres via
+// la colonne GENERATED ALWAYS STORED. On garde ces no-ops pour
+// préserver la signature de l'API (les Server Actions existantes
+// continuent de compiler sans changement).
+export function indexEntity(_args: {
   entityType: SearchEntityType;
   entityId: string;
   href: string;
   title: string;
   body?: string | null;
   themes?: string | null;
-}) {
-  const db = getDb();
-  // upsert : on supprime puis insère
-  db.prepare(
-    "DELETE FROM search_index WHERE entity_type = ? AND entity_id = ?",
-  ).run(args.entityType, args.entityId);
-  db.prepare(
-    `INSERT INTO search_index (entity_type, entity_id, href, title, body, themes)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-  ).run(
-    args.entityType,
-    args.entityId,
-    args.href,
-    args.title,
-    args.body ?? "",
-    args.themes ?? "",
-  );
+}): void {
+  /* no-op : maintenu par Postgres */
 }
 
-export function removeFromIndex(entityType: SearchEntityType, entityId: string) {
-  const db = getDb();
-  db.prepare(
-    "DELETE FROM search_index WHERE entity_type = ? AND entity_id = ?",
-  ).run(entityType, entityId);
-}
-
-/** Vide complètement l'index. Utilisé au seed pour repartir propre. */
-export function clearIndex() {
-  const db = getDb();
-  db.prepare("DELETE FROM search_index").run();
-}
-
-export function indexCount() {
-  const db = getDb();
-  return (
-    (db.prepare("SELECT count(*) as c FROM search_index").get() as { c: number })?.c ?? 0
-  );
+export function removeFromIndex(
+  _entityType: SearchEntityType,
+  _entityId: string,
+): void {
+  /* no-op */
 }

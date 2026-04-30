@@ -24,7 +24,7 @@ export async function createEntraide(input: z.infer<typeof NewEntraide>) {
   const data = NewEntraide.parse(input);
   const u = await getCurrentUser();
   const id = `e-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`;
-  db.insert(schema.entraide)
+  await db.insert(schema.entraide)
     .values({
       id,
       type: data.type,
@@ -35,7 +35,7 @@ export async function createEntraide(input: z.infer<typeof NewEntraide>) {
       auteurId: u.id,
       auteur: idAuthor(u.name),
     })
-    .run();
+    ;
   revalidatePath("/", "layout");
   return { id };
 }
@@ -43,7 +43,7 @@ export async function createEntraide(input: z.infer<typeof NewEntraide>) {
 /** Ouvre (ou réutilise) une conversation pair-à-pair pour un item d'entraide. */
 export async function openConversation(entraideId: string) {
   const u = await getCurrentUser();
-  const e = db.select().from(schema.entraide).where(eq(schema.entraide.id, entraideId)).get();
+  const e = await db.select().from(schema.entraide).where(eq(schema.entraide.id, entraideId)).then(r => r[0]);
   if (!e) throw new Error("Annonce d'entraide introuvable.");
   if (e.auteurId === u.id) throw new Error("Vous êtes l'auteur de cette annonce.");
 
@@ -51,7 +51,7 @@ export async function openConversation(entraideId: string) {
   const aId = u.id < e.auteurId ? u.id : e.auteurId;
   const bId = u.id < e.auteurId ? e.auteurId : u.id;
 
-  const existing = db
+  const existing = await db
     .select()
     .from(schema.conversations)
     .where(
@@ -61,11 +61,11 @@ export async function openConversation(entraideId: string) {
         eq(schema.conversations.bId, bId),
       ),
     )
-    .get();
+    .then(r => r[0]);
   if (existing) return { id: existing.id };
 
   const id = `c-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`;
-  db.insert(schema.conversations).values({ id, entraideId, aId, bId }).run();
+  await db.insert(schema.conversations).values({ id, entraideId, aId, bId });
   revalidatePath("/messages");
   return { id };
 }
@@ -78,16 +78,16 @@ const NewMessage = z.object({
 export async function sendMessage(input: z.infer<typeof NewMessage>) {
   const data = NewMessage.parse(input);
   const u = await getCurrentUser();
-  const conv = db
+  const conv = await db
     .select()
     .from(schema.conversations)
     .where(eq(schema.conversations.id, data.conversationId))
-    .get();
+    .then(r => r[0]);
   if (!conv) throw new Error("Conversation introuvable.");
   if (conv.aId !== u.id && conv.bId !== u.id) throw new Error("Accès refusé.");
-  db.insert(schema.messages)
+  await db.insert(schema.messages)
     .values({ conversationId: data.conversationId, authorId: u.id, body: data.body })
-    .run();
+    ;
   // Notification au destinataire
   const otherId = conv.aId === u.id ? conv.bId : conv.aId;
   await notify({
@@ -109,20 +109,20 @@ export async function sendMessage(input: z.infer<typeof NewMessage>) {
 
 export async function closeEntraide(entraideId: string) {
   const u = await getCurrentUser();
-  const e = db.select().from(schema.entraide).where(eq(schema.entraide.id, entraideId)).get();
+  const e = await db.select().from(schema.entraide).where(eq(schema.entraide.id, entraideId)).then(r => r[0]);
   if (!e) throw new Error("Introuvable");
   if (e.auteurId !== u.id) throw new Error("Seul l'auteur peut clôturer.");
-  db.update(schema.entraide).set({ closed: true }).where(eq(schema.entraide.id, entraideId)).run();
+  await db.update(schema.entraide).set({ closed: true }).where(eq(schema.entraide.id, entraideId));
   revalidatePath("/", "layout");
 }
 
 /** Conversations de l'utilisateur courant (les deux côtés). */
 export async function listConversationsOfUser() {
   const u = await getCurrentUser();
-  return db
+  return await db
     .select()
     .from(schema.conversations)
     .where(or(eq(schema.conversations.aId, u.id), eq(schema.conversations.bId, u.id)))
     .orderBy(asc(schema.conversations.createdAt))
-    .all();
+    ;
 }

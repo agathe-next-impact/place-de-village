@@ -31,9 +31,9 @@ export async function verifyPassword(plain: string, hash: string) {
 export async function createSession(userId: string, userAgent?: string) {
   const id = newId(48);
   const expiresAt = new Date(Date.now() + SESSION_TTL_DAYS * 86400 * 1000);
-  db.insert(schema.sessions)
+  await db.insert(schema.sessions)
     .values({ id, userId, expiresAt, userAgent: userAgent ?? null })
-    .run();
+    ;
   const c = await cookies();
   c.set(SESSION_COOKIE, id, {
     httpOnly: true,
@@ -49,7 +49,7 @@ export async function destroyCurrentSession() {
   const c = await cookies();
   const sid = c.get(SESSION_COOKIE)?.value;
   if (sid) {
-    db.delete(schema.sessions).where(eq(schema.sessions.id, sid)).run();
+    await db.delete(schema.sessions).where(eq(schema.sessions.id, sid));
   }
   c.delete(SESSION_COOKIE);
 }
@@ -63,18 +63,18 @@ export async function getCurrentUser() {
   const c = await cookies();
   const sid = c.get(SESSION_COOKIE)?.value;
   if (sid) {
-    const sess = db
+    const sess = await db
       .select()
       .from(schema.sessions)
       .where(and(eq(schema.sessions.id, sid), gt(schema.sessions.expiresAt, new Date())))
-      .get();
+      .then(r => r[0]);
     if (sess) {
       // sliding window — last seen
-      db.update(schema.sessions)
+      await db.update(schema.sessions)
         .set({ lastSeenAt: new Date() })
         .where(eq(schema.sessions.id, sid))
-        .run();
-      const u = db.select().from(schema.users).where(eq(schema.users.id, sess.userId)).get();
+        ;
+      const u = await db.select().from(schema.users).where(eq(schema.users.id, sess.userId)).then(r => r[0]);
       if (u) return u;
     } else {
       // Cookie présent mais session invalide → clear
@@ -82,14 +82,14 @@ export async function getCurrentUser() {
     }
   }
   // Démo : profil par défaut. À retirer en production.
-  return db.select().from(schema.users).where(eq(schema.users.id, "u1")).get()!;
+  return await db.select().from(schema.users).where(eq(schema.users.id, "u1")).then(r => r[0])!;
 }
 
 export async function getCurrentSession() {
   const c = await cookies();
   const sid = c.get(SESSION_COOKIE)?.value;
   if (!sid) return null;
-  return db.select().from(schema.sessions).where(eq(schema.sessions.id, sid)).get() ?? null;
+  return await db.select().from(schema.sessions).where(eq(schema.sessions.id, sid)).then(r => r[0]) ?? null;
 }
 
 export async function isAuthenticated() {
@@ -114,33 +114,33 @@ export async function assertAuth() {
 export async function createMagicToken(email: string) {
   const token = newId(32);
   const expiresAt = new Date(Date.now() + MAGIC_TTL_MIN * 60 * 1000);
-  db.insert(schema.magicTokens).values({ token, email: email.toLowerCase(), expiresAt }).run();
+  await db.insert(schema.magicTokens).values({ token, email: email.toLowerCase(), expiresAt });
   return token;
 }
 
 /** Consomme un magic link (usage unique). Retourne l'utilisateur ou throw. */
 export async function consumeMagicToken(token: string) {
-  const row = db.select().from(schema.magicTokens).where(eq(schema.magicTokens.token, token)).get();
+  const row = await db.select().from(schema.magicTokens).where(eq(schema.magicTokens.token, token)).then(r => r[0]);
   if (!row) throw new Error("Lien invalide.");
   if (row.consumedAt) throw new Error("Lien déjà utilisé.");
   if (row.expiresAt < new Date()) throw new Error("Lien expiré.");
-  db.update(schema.magicTokens)
+  await db.update(schema.magicTokens)
     .set({ consumedAt: new Date() })
     .where(eq(schema.magicTokens.token, token))
-    .run();
-  let u = db.select().from(schema.users).where(eq(schema.users.email, row.email)).get();
+    ;
+  let u = await db.select().from(schema.users).where(eq(schema.users.email, row.email)).then(r => r[0]);
   if (!u) {
     // Première connexion par lien : on crée le compte habitant à la volée
     const id = `u-${randomBytes(8).toString("hex")}`;
-    db.insert(schema.users)
+    await db.insert(schema.users)
       .values({ id, email: row.email, name: row.email.split("@")[0], role: "habitant", emailVerifiedAt: new Date() })
-      .run();
-    u = db.select().from(schema.users).where(eq(schema.users.id, id)).get()!;
+      ;
+    u = await db.select().from(schema.users).where(eq(schema.users.id, id)).then(r => r[0])!;
   } else if (!u.emailVerifiedAt) {
-    db.update(schema.users)
+    await db.update(schema.users)
       .set({ emailVerifiedAt: new Date() })
       .where(eq(schema.users.id, u.id))
-      .run();
+      ;
   }
   return u;
 }

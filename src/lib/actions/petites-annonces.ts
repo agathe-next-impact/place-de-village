@@ -25,7 +25,7 @@ export async function createPetiteAnnonce(input: z.infer<typeof New>) {
   const u = await getCurrentUser();
   const id = `pa-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`;
   const expiresAt = new Date(Date.now() + 30 * 24 * 3600 * 1000);
-  db.insert(schema.petitesAnnonces)
+  await db.insert(schema.petitesAnnonces)
     .values({
       id,
       type: data.type,
@@ -37,7 +37,7 @@ export async function createPetiteAnnonce(input: z.infer<typeof New>) {
       auteur: idAuthor(u.name),
       expiresAt,
     })
-    .run();
+    ;
   indexEntity({
     entityType: "petite_annonce",
     entityId: id,
@@ -53,20 +53,20 @@ export async function createPetiteAnnonce(input: z.infer<typeof New>) {
 
 export async function closePetiteAnnonce(id: string) {
   const u = await getCurrentUser();
-  const a = db.select().from(schema.petitesAnnonces).where(eq(schema.petitesAnnonces.id, id)).get();
+  const a = await db.select().from(schema.petitesAnnonces).where(eq(schema.petitesAnnonces.id, id)).then(r => r[0]);
   if (!a) throw new Error("Introuvable");
   if (a.auteurId !== u.id) throw new Error("Seul l'auteur peut clôturer.");
-  db.update(schema.petitesAnnonces).set({ closed: true }).where(eq(schema.petitesAnnonces.id, id)).run();
+  await db.update(schema.petitesAnnonces).set({ closed: true }).where(eq(schema.petitesAnnonces.id, id));
   removeFromIndex("petite_annonce", id);
   revalidatePath("/petites-annonces");
 }
 
 export async function activePetitesAnnonces() {
   const now = new Date();
-  return db
-    .select()
-    .from(schema.petitesAnnonces)
-    .where(gt(schema.petitesAnnonces.expiresAt, now))
-    .all()
-    .filter((a) => !a.closed);
+  return (
+    await db
+      .select()
+      .from(schema.petitesAnnonces)
+      .where(gt(schema.petitesAnnonces.expiresAt, now))
+  ).filter((a) => !a.closed);
 }

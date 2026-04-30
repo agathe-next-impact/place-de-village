@@ -14,7 +14,7 @@ import { db, schema } from "@/lib/db/client";
  * avec un contexte métier et de garder une trace locale même quand
  * Sentry n'est pas joignable.
  */
-export function captureError(
+export async function captureError(
   err: unknown,
   meta?: { context?: Record<string, unknown>; userId?: string; tags?: Record<string, string> },
 ) {
@@ -33,7 +33,7 @@ export function captureError(
     /* on n'échoue jamais ici */
   }
   try {
-    db.insert(schema.errorLog)
+    await db.insert(schema.errorLog)
       .values({
         level: "error",
         message: message.slice(0, 1000),
@@ -42,7 +42,7 @@ export function captureError(
         runtime: process.env.NEXT_RUNTIME ?? "nodejs",
         sentryEventId: sentryEventId ?? null,
       })
-      .run();
+      ;
   } catch {
     // Si même la DB échoue (peu probable hors disque plein), on
     // accepte la perte plutôt que de bloquer l'application.
@@ -53,7 +53,7 @@ export function captureError(
   }
 }
 
-export function captureMessage(message: string, meta?: { tags?: Record<string, string> }) {
+export async function captureMessage(message: string, meta?: { tags?: Record<string, string> }) {
   if (process.env.SENTRY_DSN) {
     try {
       Sentry.captureMessage(message, { tags: meta?.tags, level: "info" });
@@ -62,13 +62,13 @@ export function captureMessage(message: string, meta?: { tags?: Record<string, s
     }
   }
   try {
-    db.insert(schema.errorLog)
+    await db.insert(schema.errorLog)
       .values({
         level: "info",
         message: message.slice(0, 1000),
         runtime: process.env.NEXT_RUNTIME ?? "nodejs",
       })
-      .run();
+      ;
   } catch {
     /* ignore */
   }

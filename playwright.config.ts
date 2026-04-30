@@ -36,6 +36,10 @@ export default defineConfig({
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
-    env: { NODE_ENV: "production", PUBLIC_BASE_URL: BASE_URL },
+    env: {
+      NODE_ENV: "production",
+      PUBLIC_BASE_URL: BASE_URL,
+      DATABASE_URL: process.env.DATABASE_URL ?? "postgres://trizac:trizac@localhost:5432/trizac",
+    },
   },
 });

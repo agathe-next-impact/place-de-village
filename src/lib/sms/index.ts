@@ -18,7 +18,7 @@ type QueueArgs = {
 
 /** Programme un SMS (envoi immédiat ou différé). */
 export async function queueSms(args: QueueArgs) {
-  const inserted = db
+  const inserted = await db
     .insert(schema.smsQueue)
     .values({
       toPhone: args.to,
@@ -27,8 +27,7 @@ export async function queueSms(args: QueueArgs) {
       relatedEntity: args.relatedEntity ?? null,
       scheduledAt: args.scheduledAt ?? new Date(),
     })
-    .returning()
-    .get();
+    .returning().then(r => r[0]);
   // Si l'envoi est immédiat ou passé, on dispatche tout de suite
   if (!args.scheduledAt || args.scheduledAt <= new Date()) {
     await dispatchSms(inserted.id);
@@ -37,28 +36,28 @@ export async function queueSms(args: QueueArgs) {
 }
 
 export async function dispatchSms(id: number) {
-  const row = db.select().from(schema.smsQueue).where(eq(schema.smsQueue.id, id)).get();
+  const row = await db.select().from(schema.smsQueue).where(eq(schema.smsQueue.id, id)).then(r => r[0]);
   if (!row || row.status !== "pending") return;
   try {
     const provider = getProvider();
     await provider.send({ to: row.toPhone, body: row.body, queueId: id });
-    db.update(schema.smsQueue)
+    await db.update(schema.smsQueue)
       .set({
         status: provider.name === "outbox" ? "captured" : "sent",
         sentAt: new Date(),
         attempts: row.attempts + 1,
       })
       .where(eq(schema.smsQueue.id, id))
-      .run();
+      ;
   } catch (err) {
-    db.update(schema.smsQueue)
+    await db.update(schema.smsQueue)
       .set({
         status: row.attempts + 1 >= 5 ? "failed" : "pending",
         attempts: row.attempts + 1,
         lastError: err instanceof Error ? err.message : String(err),
       })
       .where(eq(schema.smsQueue.id, id))
-      .run();
+      ;
     const { captureError } = await import("@/lib/errors");
     captureError(err, {
       context: { smsId: id, template: row.template, attempts: row.attempts + 1 },
@@ -74,12 +73,12 @@ export async function dispatchSms(id: number) {
  */
 export async function dispatchPendingSms() {
   const now = new Date();
-  const pending = db
-    .select()
-    .from(schema.smsQueue)
-    .where(eq(schema.smsQueue.status, "pending"))
-    .all()
-    .filter((r) => r.scheduledAt <= now);
+  const pending = (
+    await db
+      .select()
+      .from(schema.smsQueue)
+      .where(eq(schema.smsQueue.status, "pending"))
+  ).filter((r) => r.scheduledAt <= now);
   for (const r of pending) await dispatchSms(r.id);
   return { dispatched: pending.length };
 }
@@ -96,7 +95,7 @@ export async function notifySms(args: {
   relatedEntity?: string;
   scheduledAt?: Date;
 }) {
-  const u = db.select().from(schema.users).where(eq(schema.users.id, args.userId)).get();
+  const u = await db.select().from(schema.users).where(eq(schema.users.id, args.userId)).then(r => r[0]);
   if (!u) return false;
   if (!u.phone) return false;
   const granted = await hasConsent(u.id, "sms", false);

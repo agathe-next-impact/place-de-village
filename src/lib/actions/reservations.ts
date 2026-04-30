@@ -24,7 +24,7 @@ export async function createReservation(input: z.infer<typeof NewReservation>) {
   const u = await getCurrentUser();
 
   // Vérification anti-conflit avec une réservation validée de la même période
-  const existing = db
+  const existing = await db
     .select()
     .from(schema.reservations)
     .where(
@@ -34,7 +34,7 @@ export async function createReservation(input: z.infer<typeof NewReservation>) {
         ne(schema.reservations.statut, "annule"),
       ),
     )
-    .all();
+    ;
   const conflict = existing.find((r) => overlap(r.startIso, r.endIso, data.startIso, data.endIso));
   if (conflict) {
     throw new Error(
@@ -43,7 +43,7 @@ export async function createReservation(input: z.infer<typeof NewReservation>) {
   }
 
   const id = `r-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`;
-  db.insert(schema.reservations)
+  await db.insert(schema.reservations)
     .values({
       id,
       equipementId: data.equipementId,
@@ -54,8 +54,8 @@ export async function createReservation(input: z.infer<typeof NewReservation>) {
       motif: data.motif,
       statut: "en-attente",
     })
-    .run();
-  db.insert(schema.auditLog)
+    ;
+  await db.insert(schema.auditLog)
     .values({
       actorId: u.id,
       actorName: u.name,
@@ -64,7 +64,7 @@ export async function createReservation(input: z.infer<typeof NewReservation>) {
       entityId: id,
       details: `${data.equipementId} · ${data.startIso}→${data.endIso}`,
     })
-    .run();
+    ;
   revalidatePath("/", "layout");
   return { id };
 }
@@ -78,13 +78,13 @@ export async function updateReservationStatus(
   if (next !== "annule" && u.role !== "referent" && u.role !== "agent" && u.role !== "maire") {
     throw new Error("Validation réservée au référent municipal.");
   }
-  const r = db.select().from(schema.reservations).where(eq(schema.reservations.id, reservationId)).get();
+  const r = await db.select().from(schema.reservations).where(eq(schema.reservations.id, reservationId)).then(r => r[0]);
   if (!r) throw new Error("Réservation introuvable.");
-  db.update(schema.reservations)
+  await db.update(schema.reservations)
     .set({ statut: next, refusMotif: refusMotif ?? null })
     .where(eq(schema.reservations.id, reservationId))
-    .run();
-  db.insert(schema.auditLog)
+    ;
+  await db.insert(schema.auditLog)
     .values({
       actorId: u.id,
       actorName: u.name,
@@ -93,11 +93,15 @@ export async function updateReservationStatus(
       entityId: reservationId,
       details: refusMotif ?? null,
     })
-    .run();
+    ;
   if (next !== "annule") {
     const equipement =
-      db.select().from(schema.equipements).where(eq(schema.equipements.id, r.equipementId)).get()?.nom ??
-      "équipement";
+      (
+        await db
+          .select()
+          .from(schema.equipements)
+          .where(eq(schema.equipements.id, r.equipementId))
+      )[0]?.nom ?? "équipement";
     await notify({
       userId: r.userId,
       kind: `reservation_${next}`,

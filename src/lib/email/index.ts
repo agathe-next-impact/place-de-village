@@ -24,7 +24,7 @@ type QueueArgs = {
  * on effectue les deux opérations en synchrone.
  */
 export async function queueAndSendEmail(args: QueueArgs) {
-  const inserted = db
+  const inserted = await db
     .insert(schema.emailQueue)
     .values({
       toAddress: args.to,
@@ -35,15 +35,14 @@ export async function queueAndSendEmail(args: QueueArgs) {
       template: args.template,
       relatedEntity: args.relatedEntity ?? null,
     })
-    .returning()
-    .get();
+    .returning().then(r => r[0]);
 
   await dispatchEmail(inserted.id);
   return inserted;
 }
 
 export async function dispatchEmail(id: number) {
-  const row = db.select().from(schema.emailQueue).where(eq(schema.emailQueue.id, id)).get();
+  const row = await db.select().from(schema.emailQueue).where(eq(schema.emailQueue.id, id)).then(r => r[0]);
   if (!row || row.status !== "pending") return;
   try {
     if (isSmtpConfigured()) {
@@ -55,10 +54,10 @@ export async function dispatchEmail(id: number) {
         text: row.text,
         html: row.html ?? undefined,
       });
-      db.update(schema.emailQueue)
+      await db.update(schema.emailQueue)
         .set({ status: "sent", sentAt: new Date(), attempts: row.attempts + 1 })
         .where(eq(schema.emailQueue.id, id))
-        .run();
+        ;
     } else {
       await captureToOutbox({
         id,
@@ -67,20 +66,20 @@ export async function dispatchEmail(id: number) {
         text: row.text,
         html: row.html,
       });
-      db.update(schema.emailQueue)
+      await db.update(schema.emailQueue)
         .set({ status: "captured", sentAt: new Date(), attempts: row.attempts + 1 })
         .where(eq(schema.emailQueue.id, id))
-        .run();
+        ;
     }
   } catch (err) {
-    db.update(schema.emailQueue)
+    await db.update(schema.emailQueue)
       .set({
         status: row.attempts + 1 >= 5 ? "failed" : "pending",
         attempts: row.attempts + 1,
         lastError: err instanceof Error ? err.message : String(err),
       })
       .where(eq(schema.emailQueue.id, id))
-      .run();
+      ;
     const { captureError } = await import("@/lib/errors");
     captureError(err, {
       context: { emailId: id, template: row.template, attempts: row.attempts + 1 },
@@ -100,7 +99,7 @@ export async function notifyEmail(args: {
   rendered: TemplateOutput;
   relatedEntity?: string;
 }) {
-  const u = db.select().from(schema.users).where(eq(schema.users.id, args.userId)).get();
+  const u = await db.select().from(schema.users).where(eq(schema.users.id, args.userId)).then(r => r[0]);
   if (!u) return;
   const granted = await hasConsent(u.id, "transac_email", true);
   if (!granted) return;

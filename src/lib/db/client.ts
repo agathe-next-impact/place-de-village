@@ -1,17 +1,31 @@
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import Database from "better-sqlite3";
-import path from "node:path";
-import fs from "node:fs";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import * as schema from "./schema";
 
-const dbDir = path.resolve(process.cwd(), "data");
-if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
+/**
+ * Connexion Postgres unique (pool de l'instance), partagée par toutes
+ * les requêtes serveur — Server Components, Server Actions, scripts
+ * CLI (seed, migrate).
+ *
+ * En dev local : DATABASE_URL pointe sur un Postgres lancé via
+ * `docker compose up -d` (cf. docker-compose.yml).
+ *
+ * Sur Vercel : Vercel Postgres (Neon) injecte automatiquement
+ * POSTGRES_URL ; on fallback dessus.
+ */
+const url =
+  process.env.DATABASE_URL ??
+  process.env.POSTGRES_URL ??
+  "postgres://trizac:trizac@localhost:5432/trizac";
 
-const dbPath = path.join(dbDir, "trizac.db");
+const client = postgres(url, {
+  // Options conservatrices : 10 connexions max, prepared statements
+  // désactivés pour compatibilité maximale avec les poolers (PgBouncer
+  // transaction mode utilisé par Vercel/Neon). `max: 1` recommandé en
+  // serverless si chaque invocation crée un client neuf.
+  max: process.env.VERCEL ? 1 : 10,
+  prepare: false,
+});
 
-const sqlite = new Database(dbPath);
-sqlite.pragma("journal_mode = WAL");
-sqlite.pragma("foreign_keys = ON");
-
-export const db = drizzle(sqlite, { schema });
+export const db = drizzle(client, { schema });
 export { schema };

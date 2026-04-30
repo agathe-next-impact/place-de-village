@@ -1,9 +1,16 @@
-import { migrate } from "drizzle-orm/better-sqlite3/migrator";
-import { db } from "./client";
+import { migrate } from "drizzle-orm/postgres-js/migrator";
 import path from "node:path";
+import { db } from "./client";
 
-migrate(db, {
-  migrationsFolder: path.resolve(process.cwd(), "drizzle"),
+async function main() {
+  await migrate(db, {
+    migrationsFolder: path.resolve(process.cwd(), "drizzle"),
+  });
+  console.log("✓ migrations applied");
+  process.exit(0);
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
 });
-
-console.log("✓ migrations applied");

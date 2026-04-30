@@ -13,7 +13,7 @@ const FRENCH_MONTHS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil."
 
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const eqRow = db.select().from(schema.equipements).where(eq(schema.equipements.id, id)).get();
+  const eqRow = await db.select().from(schema.equipements).where(eq(schema.equipements.id, id)).then(r => r[0]);
   if (!eqRow) notFound();
   const reservations = await listReservationsForEquipement(id);
 

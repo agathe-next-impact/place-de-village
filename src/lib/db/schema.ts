@@ -1,22 +1,28 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
+  doublePrecision,
   index,
   integer,
+  pgTable,
   primaryKey,
-  real,
-  sqliteTable,
+  serial,
   text,
+  timestamp,
   uniqueIndex,
-} from "drizzle-orm/sqlite-core";
+} from "drizzle-orm/pg-core";
 
 /**
- * Schéma SQLite local — utilisé pour la démo et le développement.
- * En production, le backend canonique est WordPress headless via WPGraphQL
- * (cf. CdC §4). Ce schéma reste compatible : il est conçu pour être
- * remplaçable sans refonte UI.
+ * Schéma Postgres — exécution sur Vercel Postgres (Neon UE / US),
+ * Postgres managé Scaleway, OVH, ou Postgres local via docker-compose.
+ *
+ * Pour le runtime local de dev sans Docker, voir `npm run db:up`
+ * (lance un Postgres temporaire pgvector via Docker).
  */
 
-export const users = sqliteTable("users", {
+const now = sql`now()`;
+
+export const users = pgTable("users", {
   id: text("id").primaryKey(),
   email: text("email").notNull().unique(),
   name: text("name").notNull(),
@@ -24,52 +30,36 @@ export const users = sqliteTable("users", {
     .notNull()
     .default("habitant"),
   passwordHash: text("password_hash"),
-  emailVerifiedAt: integer("email_verified_at", { mode: "timestamp" }),
-  /** Téléphone E.164 (ex: +33611223344). Optionnel — utilisé uniquement
-   *  pour les rappels SMS de bénévolat avec consentement `sms` explicite. */
+  emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
+  /** Téléphone E.164 (ex: +33611223344). */
   phone: text("phone"),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(now),
 });
 
-/**
- * Sessions persistées : opaque tokens en cookie HttpOnly SameSite=Lax,
- * rotation à chaque login, suppression au logout, expiration glissante 30 j.
- */
-export const sessions = sqliteTable(
+export const sessions = pgTable(
   "sessions",
   {
     id: text("id").primaryKey(),
     userId: text("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
-    createdAt: integer("created_at", { mode: "timestamp" })
-      .notNull()
-      .default(sql`(unixepoch())`),
-    lastSeenAt: integer("last_seen_at", { mode: "timestamp" })
-      .notNull()
-      .default(sql`(unixepoch())`),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(now),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().default(now),
     userAgent: text("user_agent"),
   },
-  (t) => ({
-    userIdx: index("sessions_user_idx").on(t.userId),
-  }),
+  (t) => ({ userIdx: index("sessions_user_idx").on(t.userId) }),
 );
 
-/** Tokens de connexion par email (magic link). Usage unique, expirent en 15 min. */
-export const magicTokens = sqliteTable("magic_tokens", {
+export const magicTokens = pgTable("magic_tokens", {
   token: text("token").primaryKey(),
   email: text("email").notNull(),
-  expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
-  consumedAt: integer("consumed_at", { mode: "timestamp" }),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  consumedAt: timestamp("consumed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(now),
 });
 
-export const consents = sqliteTable(
+export const consents = pgTable(
   "consents",
   {
     userId: text("user_id")
@@ -78,64 +68,17 @@ export const consents = sqliteTable(
     finality: text("finality", {
       enum: ["contributions", "digest", "geoloc", "sms", "transac_email"],
     }).notNull(),
-    granted: integer("granted", { mode: "boolean" }).notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp" })
-      .notNull()
-      .default(sql`(unixepoch())`),
+    granted: boolean("granted").notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().default(now),
   },
-  (t) => ({
-    pk: primaryKey({ columns: [t.userId, t.finality] }),
-  }),
+  (t) => ({ pk: primaryKey({ columns: [t.userId, t.finality] }) }),
 );
 
-/**
- * File d'attente d'emails sortants. Tout passe par cette table pour
- * garantir la durabilité (retry, audit, traçabilité d'envoi).
- *
- * Le worker (cron ou exécution synchrone après notify) consomme les
- * lignes en `pending` et les pousse via SMTP. En mode démo sans SMTP
- * configuré, le mailer écrit en outbox local + marque comme "captured".
- */
-/**
- * File d'attente SMS sortants. Même architecture que email_queue :
- * durabilité, retry, audit. Le champ `scheduled_at` permet de
- * programmer l'envoi à une date future (rappel J-1 mission).
- *
- * Le worker (cron infra) consomme les lignes pending dont
- * `scheduled_at <= now()`. En mode démo sans provider configuré,
- * le SMS est capturé en outbox local + marqué `captured`.
- */
-export const smsQueue = sqliteTable(
-  "sms_queue",
-  {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    toPhone: text("to_phone").notNull(),
-    body: text("body").notNull(),
-    template: text("template").notNull(),
-    relatedEntity: text("related_entity"),
-    scheduledAt: integer("scheduled_at", { mode: "timestamp" })
-      .notNull()
-      .default(sql`(unixepoch())`),
-    status: text("status", { enum: ["pending", "sent", "captured", "failed"] })
-      .notNull()
-      .default("pending"),
-    attempts: integer("attempts").notNull().default(0),
-    lastError: text("last_error"),
-    createdAt: integer("created_at", { mode: "timestamp" })
-      .notNull()
-      .default(sql`(unixepoch())`),
-    sentAt: integer("sent_at", { mode: "timestamp" }),
-  },
-  (t) => ({
-    statusIdx: index("sms_queue_status_idx").on(t.status),
-    schedIdx: index("sms_queue_sched_idx").on(t.scheduledAt),
-  }),
-);
-
-export const emailQueue = sqliteTable(
+/** File d'attente d'emails sortants. */
+export const emailQueue = pgTable(
   "email_queue",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
+    id: serial("id").primaryKey(),
     toAddress: text("to_address").notNull(),
     toName: text("to_name"),
     subject: text("subject").notNull(),
@@ -148,43 +91,57 @@ export const emailQueue = sqliteTable(
       .default("pending"),
     attempts: integer("attempts").notNull().default(0),
     lastError: text("last_error"),
-    createdAt: integer("created_at", { mode: "timestamp" })
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(now),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+  },
+  (t) => ({ statusIdx: index("email_queue_status_idx").on(t.status) }),
+);
+
+/** File d'attente SMS. */
+export const smsQueue = pgTable(
+  "sms_queue",
+  {
+    id: serial("id").primaryKey(),
+    toPhone: text("to_phone").notNull(),
+    body: text("body").notNull(),
+    template: text("template").notNull(),
+    relatedEntity: text("related_entity"),
+    scheduledAt: timestamp("scheduled_at", { withTimezone: true }).notNull().default(now),
+    status: text("status", { enum: ["pending", "sent", "captured", "failed"] })
       .notNull()
-      .default(sql`(unixepoch())`),
-    sentAt: integer("sent_at", { mode: "timestamp" }),
+      .default("pending"),
+    attempts: integer("attempts").notNull().default(0),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(now),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
   },
   (t) => ({
-    statusIdx: index("email_queue_status_idx").on(t.status),
+    statusIdx: index("sms_queue_status_idx").on(t.status),
+    schedIdx: index("sms_queue_sched_idx").on(t.scheduledAt),
   }),
 );
 
 // ─── Pôle 3 : Signalements ────────────────────────────────────────────
-export const signalements = sqliteTable(
+export const signalements = pgTable(
   "signalements",
   {
     id: text("id").primaryKey(),
-    type: text("type").notNull(), // Voirie, Éclairage, …
+    type: text("type").notNull(),
     titre: text("titre").notNull(),
     description: text("description"),
-    auteurId: text("auteur_id")
-      .notNull()
-      .references(() => users.id),
-    auteur: text("auteur").notNull(), // dénormalisé pour l'affichage rapide
+    auteurId: text("auteur_id").notNull().references(() => users.id),
+    auteur: text("auteur").notNull(),
     etat: text("etat", {
       enum: ["signale", "pris-en-compte", "en-cours", "resolu"],
     })
       .notNull()
       .default("signale"),
     loc: text("loc").notNull(),
-    lat: real("lat"),
-    lng: real("lng"),
+    lat: doublePrecision("lat"),
+    lng: doublePrecision("lng"),
     icon: text("icon").notNull(),
-    createdAt: integer("created_at", { mode: "timestamp" })
-      .notNull()
-      .default(sql`(unixepoch())`),
-    updatedAt: integer("updated_at", { mode: "timestamp" })
-      .notNull()
-      .default(sql`(unixepoch())`),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(now),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().default(now),
   },
   (t) => ({
     etatIdx: index("signalements_etat_idx").on(t.etat),
@@ -192,77 +149,53 @@ export const signalements = sqliteTable(
   }),
 );
 
-export const signalementHistory = sqliteTable("signalement_history", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const signalementHistory = pgTable("signalement_history", {
+  id: serial("id").primaryKey(),
   signalementId: text("signalement_id")
     .notNull()
     .references(() => signalements.id, { onDelete: "cascade" }),
   etat: text("etat").notNull(),
   comment: text("comment"),
   agentId: text("agent_id").references(() => users.id),
-  at: integer("at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
+  at: timestamp("at", { withTimezone: true }).notNull().default(now),
 });
 
 // ─── Pôle 1 : Agora ───────────────────────────────────────────────────
-export const suggestions = sqliteTable("suggestions", {
+export const suggestions = pgTable("suggestions", {
   id: text("id").primaryKey(),
   titre: text("titre").notNull(),
   cat: text("cat").notNull(),
-  auteurId: text("auteur_id")
-    .notNull()
-    .references(() => users.id),
+  auteurId: text("auteur_id").notNull().references(() => users.id),
   auteur: text("auteur").notNull(),
   contributions: integer("contributions").notNull().default(0),
-  mature: integer("mature", { mode: "boolean" }).notNull().default(false),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
+  mature: boolean("mature").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(now),
 });
 
-/**
- * Signaux qualifiés émis par un habitant sur une suggestion.
- * Unicité (habitant × suggestion × type) — cf. CdC §4.4.
- */
-export const signalEmissions = sqliteTable(
+export const signalEmissions = pgTable(
   "signal_emissions",
   {
-    userId: text("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     suggestionId: text("suggestion_id")
       .notNull()
       .references(() => suggestions.id, { onDelete: "cascade" }),
-    type: text("type", {
-      enum: ["vis", "important", "contribuer"],
-    }).notNull(),
-    at: integer("at", { mode: "timestamp" })
-      .notNull()
-      .default(sql`(unixepoch())`),
+    type: text("type", { enum: ["vis", "important", "contribuer"] }).notNull(),
+    at: timestamp("at", { withTimezone: true }).notNull().default(now),
   },
-  (t) => ({
-    pk: primaryKey({ columns: [t.userId, t.suggestionId, t.type] }),
-  }),
+  (t) => ({ pk: primaryKey({ columns: [t.userId, t.suggestionId, t.type] }) }),
 );
 
-export const discussions = sqliteTable("discussions", {
+export const discussions = pgTable("discussions", {
   id: text("id").primaryKey(),
   titre: text("titre").notNull(),
   anim: text("anim").notNull(),
   derniereSynth: text("derniere_synth"),
-  mature: integer("mature", { mode: "boolean" }).notNull().default(false),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
+  mature: boolean("mature").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(now),
 });
 
-/**
- * Contributions structurées (5 types imposés). Aucune dérive en fil de
- * commentaires — cf. CdC §2.1 Pôle 1 Étage 2.
- */
-export const contributions = sqliteTable("contributions", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const contributions = pgTable("contributions", {
+  id: serial("id").primaryKey(),
   discussionId: text("discussion_id")
     .notNull()
     .references(() => discussions.id, { onDelete: "cascade" }),
@@ -270,71 +203,50 @@ export const contributions = sqliteTable("contributions", {
     enum: ["accord", "nuance", "objection", "question", "factuel"],
   }).notNull(),
   texte: text("texte").notNull(),
-  auteurId: text("auteur_id")
-    .notNull()
-    .references(() => users.id),
+  auteurId: text("auteur_id").notNull().references(() => users.id),
   auteur: text("auteur").notNull(),
-  at: integer("at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
+  at: timestamp("at", { withTimezone: true }).notNull().default(now),
 });
 
-export const synthesises = sqliteTable("synthesises", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const synthesises = pgTable("synthesises", {
+  id: serial("id").primaryKey(),
   discussionId: text("discussion_id")
     .notNull()
     .references(() => discussions.id, { onDelete: "cascade" }),
   texte: text("texte").notNull(),
-  authorId: text("author_id")
-    .notNull()
-    .references(() => users.id),
+  authorId: text("author_id").notNull().references(() => users.id),
   authorName: text("author_name").notNull(),
-  publishedAt: integer("published_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
+  publishedAt: timestamp("published_at", { withTimezone: true }).notNull().default(now),
 });
 
-/**
- * Modération a posteriori : signalement de contenu par un utilisateur.
- * Cf. CdC §2.1 Pôle 4 + §2.1 Pôle 5 (annonces, petites annonces).
- */
-export const moderationFlags = sqliteTable("moderation_flags", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const moderationFlags = pgTable("moderation_flags", {
+  id: serial("id").primaryKey(),
   entityType: text("entity_type", {
     enum: ["suggestion", "contribution", "entraide", "message", "petite_annonce"],
   }).notNull(),
   entityId: text("entity_id").notNull(),
-  reporterId: text("reporter_id")
-    .notNull()
-    .references(() => users.id),
+  reporterId: text("reporter_id").notNull().references(() => users.id),
   reason: text("reason").notNull(),
   status: text("status", { enum: ["ouvert", "traite", "ignore"] })
     .notNull()
     .default("ouvert"),
   resolvedById: text("resolved_by_id").references(() => users.id),
-  resolvedAt: integer("resolved_at", { mode: "timestamp" }),
-  at: integer("at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  at: timestamp("at", { withTimezone: true }).notNull().default(now),
 });
 
-/** Notifications utilisateur. Cf. CdC §3.5 — pas de push v1. */
-export const notifications = sqliteTable("notifications", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   kind: text("kind").notNull(),
   titre: text("titre").notNull(),
   body: text("body"),
   href: text("href"),
-  readAt: integer("read_at", { mode: "timestamp" }),
-  at: integer("at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
+  readAt: timestamp("read_at", { withTimezone: true }),
+  at: timestamp("at", { withTimezone: true }).notNull().default(now),
 });
 
-export const propositions = sqliteTable("propositions", {
+export const propositions = pgTable("propositions", {
   id: text("id").primaryKey(),
   titre: text("titre").notNull(),
   constat: text("constat"),
@@ -350,31 +262,23 @@ export const propositions = sqliteTable("propositions", {
     .notNull()
     .default("instruction"),
   reponseDate: text("reponse_date"),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(now),
 });
 
-export const supports = sqliteTable(
+export const supports = pgTable(
   "supports",
   {
-    userId: text("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     propositionId: text("proposition_id")
       .notNull()
       .references(() => propositions.id, { onDelete: "cascade" }),
-    at: integer("at", { mode: "timestamp" })
-      .notNull()
-      .default(sql`(unixepoch())`),
+    at: timestamp("at", { withTimezone: true }).notNull().default(now),
   },
-  (t) => ({
-    pk: primaryKey({ columns: [t.userId, t.propositionId] }),
-  }),
+  (t) => ({ pk: primaryKey({ columns: [t.userId, t.propositionId] }) }),
 );
 
 // ─── Pôle 2 : Bénévolat ───────────────────────────────────────────────
-export const missions = sqliteTable("missions", {
+export const missions = pgTable("missions", {
   id: text("id").primaryKey(),
   titre: text("titre").notNull(),
   cat: text("cat").notNull(),
@@ -385,112 +289,82 @@ export const missions = sqliteTable("missions", {
   besoin: integer("besoin").notNull(),
   ref: text("ref").notNull(),
   refUserId: text("ref_user_id").references(() => users.id),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(now),
 });
 
-export const missionRegistrations = sqliteTable(
+export const missionRegistrations = pgTable(
   "mission_registrations",
   {
-    userId: text("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     missionId: text("mission_id")
       .notNull()
       .references(() => missions.id, { onDelete: "cascade" }),
-    at: integer("at", { mode: "timestamp" })
-      .notNull()
-      .default(sql`(unixepoch())`),
+    at: timestamp("at", { withTimezone: true }).notNull().default(now),
   },
-  (t) => ({
-    pk: primaryKey({ columns: [t.userId, t.missionId] }),
-  }),
+  (t) => ({ pk: primaryKey({ columns: [t.userId, t.missionId] }) }),
 );
 
 // ─── Pôle 4 : Entraide ────────────────────────────────────────────────
-export const entraide = sqliteTable("entraide", {
+export const entraide = pgTable("entraide", {
   id: text("id").primaryKey(),
   type: text("type", { enum: ["demande", "offre"] }).notNull(),
   titre: text("titre").notNull(),
   description: text("description").notNull(),
   quartier: text("quartier").notNull(),
   date: text("date"),
-  auteurId: text("auteur_id")
-    .notNull()
-    .references(() => users.id),
+  auteurId: text("auteur_id").notNull().references(() => users.id),
   auteur: text("auteur").notNull(),
   age: text("age"),
-  closed: integer("closed", { mode: "boolean" }).notNull().default(false),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
+  closed: boolean("closed").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(now),
 });
 
-/**
- * Messagerie interne asynchrone — Pôle 4 entraide.
- * Pas de chat instantané. Pas d'exposition des coordonnées personnelles.
- */
-export const conversations = sqliteTable(
+export const conversations = pgTable(
   "conversations",
   {
     id: text("id").primaryKey(),
     entraideId: text("entraide_id")
       .notNull()
       .references(() => entraide.id, { onDelete: "cascade" }),
-    aId: text("a_id")
-      .notNull()
-      .references(() => users.id),
-    bId: text("b_id")
-      .notNull()
-      .references(() => users.id),
-    createdAt: integer("created_at", { mode: "timestamp" })
-      .notNull()
-      .default(sql`(unixepoch())`),
+    aId: text("a_id").notNull().references(() => users.id),
+    bId: text("b_id").notNull().references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(now),
   },
-  (t) => ({
-    uniq: uniqueIndex("conv_pair_uniq").on(t.entraideId, t.aId, t.bId),
-  }),
+  (t) => ({ uniq: uniqueIndex("conv_pair_uniq").on(t.entraideId, t.aId, t.bId) }),
 );
 
-export const messages = sqliteTable("messages", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const messages = pgTable("messages", {
+  id: serial("id").primaryKey(),
   conversationId: text("conversation_id")
     .notNull()
     .references(() => conversations.id, { onDelete: "cascade" }),
-  authorId: text("author_id")
-    .notNull()
-    .references(() => users.id),
+  authorId: text("author_id").notNull().references(() => users.id),
   body: text("body").notNull(),
-  at: integer("at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
+  at: timestamp("at", { withTimezone: true }).notNull().default(now),
 });
 
 // ─── Pôle 5 : Vie locale ──────────────────────────────────────────────
-export const annonces = sqliteTable("annonces", {
+export const annonces = pgTable("annonces", {
   id: text("id").primaryKey(),
   titre: text("titre").notNull(),
   resume: text("resume").notNull(),
   body: text("body"),
   date: text("date").notNull(),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(now),
 });
 
-export const agendaItems = sqliteTable("agenda_items", {
+export const agendaItems = pgTable("agenda_items", {
   id: text("id").primaryKey(),
   titre: text("titre").notNull(),
-  date: text("date").notNull(), // affichage "5 nov."
-  jour: text("jour").notNull(), // "mer"
+  date: text("date").notNull(),
+  jour: text("jour").notNull(),
   heure: text("heure").notNull(),
   lieu: text("lieu").notNull(),
   type: text("type", { enum: ["officiel", "asso", "benevolat"] }).notNull(),
-  iso: text("iso"), // YYYY-MM-DD pour la vue calendrier
+  iso: text("iso"),
 });
 
-export const associations = sqliteTable("associations", {
+export const associations = pgTable("associations", {
   id: text("id").primaryKey(),
   nom: text("nom").notNull(),
   description: text("description"),
@@ -498,36 +372,30 @@ export const associations = sqliteTable("associations", {
   membres: text("membres"),
 });
 
-export const ccm = sqliteTable("ccm", {
-  // Comptes rendus de conseil municipal
+export const ccm = pgTable("ccm", {
   id: text("id").primaryKey(),
   date: text("date").notNull(),
   titre: text("titre").notNull(),
   body: text("body").notNull(),
-  themes: text("themes"), // CSV simple
+  themes: text("themes"),
 });
 
-/** Petites annonces (don / prêt / échange / vente). Durée 30 jours. */
-export const petitesAnnonces = sqliteTable("petites_annonces", {
+export const petitesAnnonces = pgTable("petites_annonces", {
   id: text("id").primaryKey(),
   type: text("type", { enum: ["don", "pret", "echange", "vente"] }).notNull(),
   cat: text("cat").notNull(),
   titre: text("titre").notNull(),
   description: text("description").notNull(),
   prix: text("prix"),
-  auteurId: text("auteur_id")
-    .notNull()
-    .references(() => users.id),
+  auteurId: text("auteur_id").notNull().references(() => users.id),
   auteur: text("auteur").notNull(),
-  expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
-  closed: integer("closed", { mode: "boolean" }).notNull().default(false),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  closed: boolean("closed").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(now),
 });
 
 // ─── Pôle 6 : Réservations ────────────────────────────────────────────
-export const equipements = sqliteTable("equipements", {
+export const equipements = pgTable("equipements", {
   id: text("id").primaryKey(),
   nom: text("nom").notNull(),
   capacite: text("capacite").notNull(),
@@ -535,65 +403,54 @@ export const equipements = sqliteTable("equipements", {
   description: text("description"),
 });
 
-export const reservations = sqliteTable("reservations", {
+export const reservations = pgTable("reservations", {
   id: text("id").primaryKey(),
-  equipementId: text("equipement_id")
-    .notNull()
-    .references(() => equipements.id),
-  userId: text("user_id")
-    .notNull()
-    .references(() => users.id),
+  equipementId: text("equipement_id").notNull().references(() => equipements.id),
+  userId: text("user_id").notNull().references(() => users.id),
   userName: text("user_name").notNull(),
-  startIso: text("start_iso").notNull(), // YYYY-MM-DD
+  startIso: text("start_iso").notNull(),
   endIso: text("end_iso").notNull(),
   motif: text("motif").notNull(),
-  statut: text("statut", {
-    enum: ["en-attente", "valide", "refus", "annule"],
-  })
+  statut: text("statut", { enum: ["en-attente", "valide", "refus", "annule"] })
     .notNull()
     .default("en-attente"),
   refusMotif: text("refus_motif"),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().default(now),
 });
 
-/**
- * Log d'erreurs local — utilisé en fallback quand SENTRY_DSN n'est
- * pas configuré, ou en double pour visibilité depuis /mairie/errors
- * sans avoir à ouvrir l'instance Sentry.
- */
-export const errorLog = sqliteTable(
+export const errorLog = pgTable(
   "error_log",
   {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    level: text("level", { enum: ["error", "warn", "info"] })
-      .notNull()
-      .default("error"),
+    id: serial("id").primaryKey(),
+    level: text("level", { enum: ["error", "warn", "info"] }).notNull().default("error"),
     message: text("message").notNull(),
     stack: text("stack"),
     context: text("context"),
     runtime: text("runtime"),
     sentryEventId: text("sentry_event_id"),
-    at: integer("at", { mode: "timestamp" })
-      .notNull()
-      .default(sql`(unixepoch())`),
+    at: timestamp("at", { withTimezone: true }).notNull().default(now),
   },
-  (t) => ({
-    atIdx: index("error_log_at_idx").on(t.at),
-  }),
+  (t) => ({ atIdx: index("error_log_at_idx").on(t.at) }),
 );
 
-// ─── Transparence : journal des décisions ─────────────────────────────
-export const auditLog = sqliteTable("audit_log", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const auditLog = pgTable("audit_log", {
+  id: serial("id").primaryKey(),
   actorId: text("actor_id").references(() => users.id),
   actorName: text("actor_name"),
   action: text("action").notNull(),
   entityType: text("entity_type").notNull(),
   entityId: text("entity_id").notNull(),
   details: text("details"),
-  at: integer("at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
+  at: timestamp("at", { withTimezone: true }).notNull().default(now),
 });
+
+/**
+ * Index full-text texte normal (Postgres). Le service search/ utilise
+ * `tsvector` calculé à la volée via un index GIN sur les colonnes
+ * concernées, et `pg_trgm` pour le fuzzy matching. Pas de table
+ * d'indexation séparée nécessaire — on requête directement sur
+ * suggestions/propositions/etc.
+ *
+ * Voir migration drizzle/0001_search_indexes.sql qui crée les
+ * extensions et les index.
+ */

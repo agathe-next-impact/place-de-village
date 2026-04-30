@@ -34,20 +34,23 @@ export async function createSignalement(input: z.infer<typeof NewSignalement>) {
   const u = await getCurrentUser();
 
   // Détection de doublons proches : même type + lieu commun
-  const candidates = db
-    .select()
-    .from(schema.signalements)
-    .where(
-      and(
-        eq(schema.signalements.type, data.type),
-        like(schema.signalements.loc, `%${data.loc.split(",")[0].trim().slice(0, 12)}%`),
-      ),
-    )
-    .all()
-    .filter((s) => s.etat !== "resolu");
+  const candidates = (
+    await db
+      .select()
+      .from(schema.signalements)
+      .where(
+        and(
+          eq(schema.signalements.type, data.type),
+          like(
+            schema.signalements.loc,
+            `%${data.loc.split(",")[0].trim().slice(0, 12)}%`,
+          ),
+        ),
+      )
+  ).filter((s) => s.etat !== "resolu");
 
   const id = `s-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`;
-  db.insert(schema.signalements)
+  await db.insert(schema.signalements)
     .values({
       id,
       type: data.type,
@@ -61,11 +64,11 @@ export async function createSignalement(input: z.infer<typeof NewSignalement>) {
       lng: data.lng,
       icon: data.icon,
     })
-    .run();
-  db.insert(schema.signalementHistory)
+    ;
+  await db.insert(schema.signalementHistory)
     .values({ signalementId: id, etat: "signale" })
-    .run();
-  db.insert(schema.auditLog)
+    ;
+  await db.insert(schema.auditLog)
     .values({
       actorId: u.id,
       actorName: u.name,
@@ -74,7 +77,7 @@ export async function createSignalement(input: z.infer<typeof NewSignalement>) {
       entityId: id,
       details: `${data.type} · ${data.loc}`,
     })
-    .run();
+    ;
   indexEntity({
     entityType: "signalement",
     entityId: id,
@@ -100,20 +103,20 @@ export async function updateSignalementState(input: z.infer<typeof StateUpdate>)
   if (u.role !== "agent" && u.role !== "referent" && u.role !== "maire") {
     throw new Error("Action réservée aux agents municipaux.");
   }
-  const sig = db
+  const sig = await db
     .select()
     .from(schema.signalements)
     .where(eq(schema.signalements.id, data.signalementId))
-    .get();
+    .then(r => r[0]);
   if (!sig) throw new Error("Signalement introuvable.");
-  db.update(schema.signalements)
+  await db.update(schema.signalements)
     .set({ etat: data.etat })
     .where(eq(schema.signalements.id, data.signalementId))
-    .run();
-  db.insert(schema.signalementHistory)
+    ;
+  await db.insert(schema.signalementHistory)
     .values({ signalementId: data.signalementId, etat: data.etat, agentId: u.id, comment: data.comment })
-    .run();
-  db.insert(schema.auditLog)
+    ;
+  await db.insert(schema.auditLog)
     .values({
       actorId: u.id,
       actorName: u.name,
@@ -122,7 +125,7 @@ export async function updateSignalementState(input: z.infer<typeof StateUpdate>)
       entityId: data.signalementId,
       details: `→ ${data.etat}${data.comment ? ` — ${data.comment}` : ""}`,
     })
-    .run();
+    ;
   // Notification au signalant (CdC §2.1 Pôle 3 : notification à chaque
   // changement d'état).
   const labels: Record<string, string> = {
