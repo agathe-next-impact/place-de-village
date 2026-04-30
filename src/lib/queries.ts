@@ -444,3 +444,24 @@ export async function listSmsQueue(limit = 50) {
     .limit(limit)
     .all();
 }
+
+// ─── Error log ───────────────────────────────────────────────────────
+export async function listErrors(limit = 80) {
+  return db
+    .select()
+    .from(schema.errorLog)
+    .orderBy(desc(schema.errorLog.at))
+    .limit(limit)
+    .all();
+}
+
+export async function countOpenErrors(sinceDays = 7) {
+  const cutoff = new Date(Date.now() - sinceDays * 24 * 3600 * 1000);
+  return (
+    db
+      .select({ c: sql<number>`count(*)` })
+      .from(schema.errorLog)
+      .where(and(eq(schema.errorLog.level, "error"), gt(schema.errorLog.at, cutoff)))
+      .get()?.c ?? 0
+  );
+}

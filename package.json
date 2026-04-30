@@ -17,6 +17,7 @@
     "test:e2e:headed": "playwright test --headed"
   },
   "dependencies": {
+    "@sentry/nextjs": "^10.51.0",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.9.0",
     "clsx": "^2.1.1",

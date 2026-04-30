@@ -42,9 +42,13 @@ export async function notify(args: {
       });
     } catch (err) {
       // l'erreur d'envoi email ne doit jamais empêcher la notification
-      // in-app de fonctionner — on l'avale silencieusement, la queue
-      // garde la trace des échecs.
-      console.error("[email]", err);
+      // in-app de fonctionner — on capture pour Sentry / log local
+      // mais on ne re-throw pas.
+      const { captureError } = await import("@/lib/errors");
+      captureError(err, {
+        context: { kind: args.kind, userId: args.userId },
+        tags: { module: "email" },
+      });
     }
   }
 }

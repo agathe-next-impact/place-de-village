@@ -119,15 +119,21 @@ test.describe("SMS", () => {
   }) => {
     await login(page, "camille@trizac.fr");
     await page.goto("/missions/m1");
-    const btn = page
-      .getByRole("button", { name: /Je m'inscris|Inscrit·e/ })
-      .first();
-    if (await btn.isVisible()) {
-      await btn.click();
-      await page.waitForTimeout(500);
+
+    // Si déjà inscrite (run précédent réutilisant la DB), on désinscrit
+    // d'abord pour partir d'un état propre (pas d'accumulation).
+    const inscritBtn = page.getByRole("button", { name: /Inscrit·e/ });
+    if (await inscritBtn.isVisible().catch(() => false)) {
+      await inscritBtn.click();
+      await page.waitForTimeout(300);
     }
+    // Inscription effective qui doit programmer un SMS
+    const inscBtn = page.getByRole("button", { name: /Je m'inscris/ }).first();
+    await inscBtn.click();
+    await expect(page.getByText("Inscription confirmée")).toBeVisible({ timeout: 5_000 });
+
     // Le SMS programmé doit apparaître dans la file mairie
     await page.goto("/mairie/sms");
-    await expect(page.getByText("+33611223344")).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByText("+33611223344").first()).toBeVisible({ timeout: 10_000 });
   });
 });

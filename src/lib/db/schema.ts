@@ -558,6 +558,32 @@ export const reservations = sqliteTable("reservations", {
     .default(sql`(unixepoch())`),
 });
 
+/**
+ * Log d'erreurs local — utilisé en fallback quand SENTRY_DSN n'est
+ * pas configuré, ou en double pour visibilité depuis /mairie/errors
+ * sans avoir à ouvrir l'instance Sentry.
+ */
+export const errorLog = sqliteTable(
+  "error_log",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    level: text("level", { enum: ["error", "warn", "info"] })
+      .notNull()
+      .default("error"),
+    message: text("message").notNull(),
+    stack: text("stack"),
+    context: text("context"),
+    runtime: text("runtime"),
+    sentryEventId: text("sentry_event_id"),
+    at: integer("at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (t) => ({
+    atIdx: index("error_log_at_idx").on(t.at),
+  }),
+);
+
 // ─── Transparence : journal des décisions ─────────────────────────────
 export const auditLog = sqliteTable("audit_log", {
   id: integer("id").primaryKey({ autoIncrement: true }),

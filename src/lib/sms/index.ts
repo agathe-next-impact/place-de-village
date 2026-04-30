@@ -59,6 +59,11 @@ export async function dispatchSms(id: number) {
       })
       .where(eq(schema.smsQueue.id, id))
       .run();
+    const { captureError } = await import("@/lib/errors");
+    captureError(err, {
+      context: { smsId: id, template: row.template, attempts: row.attempts + 1 },
+      tags: { module: "sms", template: row.template },
+    });
   }
 }
 

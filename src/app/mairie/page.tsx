@@ -4,6 +4,7 @@ import { ScreenShell } from "@/components/screen-shell";
 import { Surface } from "@/components/ui/surface";
 import { Section } from "@/components/ui/section";
 import {
+  countOpenErrors,
   listAuditLog,
   listMairieAlerts,
   listMissions,
@@ -19,12 +20,13 @@ const BENEVOLAT_AGGREGE = [
 ];
 
 export default async function Page() {
-  const [p, alerts, missions, audit, modFlags] = await Promise.all([
+  const [p, alerts, missions, audit, modFlags, openErrors] = await Promise.all([
     pulse(),
     listMairieAlerts(),
     listMissions(),
     listAuditLog(20),
     listOpenModerationFlags(),
+    countOpenErrors(7),
   ]);
 
   const benevHours = missions
@@ -79,6 +81,14 @@ export default async function Page() {
             </Link>
             <Link href="/mairie/sms" className="no-underline text-primary font-semibold">
               SMS →
+            </Link>
+            <Link href="/mairie/errors" className="no-underline text-primary font-semibold">
+              Erreurs
+              {openErrors > 0 && (
+                <span className="ml-1 px-1.5 py-px rounded-pill bg-danger text-white text-[10px] font-bold">
+                  {openErrors}
+                </span>
+              )}
             </Link>
           </div>
         }

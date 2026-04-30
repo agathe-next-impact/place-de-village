@@ -124,6 +124,29 @@ timer…).
 Page de visualisation : `/mairie/sms` (queue + bouton « Forcer le
 dispatch maintenant » pour la démo).
 
+## Suivi d'erreurs
+
+`@sentry/nextjs` est câblé pour pointer vers **n'importe quel endpoint
+compatible Sentry** :
+
+- **Sentry self-hosted** ([docker-compose officiel](https://develop.sentry.dev/self-hosted/))
+- **GlitchTip** (alternative légère 100% open-source, MIT)
+- Sentry SaaS (option commerciale)
+
+Configurer `SENTRY_DSN` (côté serveur) et `NEXT_PUBLIC_SENTRY_DSN`
+(côté navigateur) dans `.env.local`. **Sans DSN défini, aucun appel
+réseau n'est émis** — la capture d'erreurs reste 100% locale dans la
+table `error_log` (visible sur `/mairie/errors`).
+
+Toutes les erreurs sont aussi systématiquement persistées localement
+(double trace), pour conserver de la visibilité même quand l'instance
+Sentry est inaccessible. Helper unique : `captureError(err, { context,
+userId, tags })` dans `src/lib/errors.ts`.
+
+L'instrumentation Next.js (`src/instrumentation.ts` +
+`src/instrumentation-client.ts`) initialise le SDK aux runtimes
+Node, Edge et navigateur.
+
 ## Backend (démo SQLite)
 
 - **Schéma Drizzle** dans `src/lib/db/schema.ts` : 19 tables couvrant les

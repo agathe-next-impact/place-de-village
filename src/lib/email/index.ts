@@ -81,6 +81,11 @@ export async function dispatchEmail(id: number) {
       })
       .where(eq(schema.emailQueue.id, id))
       .run();
+    const { captureError } = await import("@/lib/errors");
+    captureError(err, {
+      context: { emailId: id, template: row.template, attempts: row.attempts + 1 },
+      tags: { module: "email", template: row.template },
+    });
   }
 }
 
