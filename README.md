@@ -49,18 +49,45 @@ tailles. Règles d'or :
 - Cibles tactiles ≥ 44 × 44 px.
 - Focus visible obligatoire (configuré globalement dans `globals.css`).
 
-## À faire ensuite (cf. README du paquet design hand-off, section
-"Hors-périmètre de la maquette")
+## Fonctionnalités câblées (état actuel)
 
-- Pages d'authentification (NextAuth + JWT WordPress)
-- Détails (signalement / discussion / proposition)
-- Formulaire de promotion discussion → proposition (friction maximale)
-- Calendrier de réservation d'équipement
-- États vides / états de chargement / états d'erreur
-- Pages légales et page « Mes données » (RGPD)
-- Connexion à WordPress headless via WPGraphQL + codegen
-- Notifications email (Brevo / Listmonk)
-- Remplacer la carte SVG placeholder par MapLibre + tuiles IGN ou OSM
+- **State store global** (`StoreProvider`, Context React) : signalements
+  (création + état), suggestions, propositions, missions, signaux qualifiés
+  (toggleable), soutiens (toggleable), inscriptions (toggleable). Toutes les
+  mutations sont en mémoire — à brancher sur des Server Actions Next.js +
+  WPGraphQL en production.
+- **Toasts a11y** (`role=region` + `aria-live="polite"`).
+- **Modal accessible** (focus trap léger, Escape ferme, scroll-lock).
+- **Formulaires** : nouvelle idée (avec validation et catégorie),
+  promotion discussion → proposition (format imposé constat / proposition /
+  justification / vigilance — friction maximale conforme CdC §2.1), création
+  signalement en 2 étapes, login / register / magic link.
+- **Pages détail** : `/signalements/[id]` (avec timeline 4 états),
+  `/idees/[id]`, `/discussions/[id]` (avec promotion mature),
+  `/propositions/[id]`, `/missions/[id]`.
+- **Pages institutionnelles** (groupe `(legal)`) : `/mentions-legales`,
+  `/confidentialite` (4 finalités, durées de conservation, sous-traitants UE),
+  `/accessibilite` (déclaration RGAA AA), `/mes-donnees` (consentements
+  granulaires révocables, droits RGPD).
+- **Pages d'auth** : `/auth/login`, `/auth/register` (consentements
+  granulaires), `/auth/magic` (lien email à usage unique).
+- **PWA** : `manifest.webmanifest`, `icon.svg`, theme-color, viewport
+  zoomable, lien skip-content vers `#main-content`.
+
+## À brancher avant la mise en prod
+
+- Auth réelle (NextAuth.js + JWT WordPress, cookie HttpOnly SameSite=Lax).
+- WPGraphQL + codegen TypeScript pour remplacer le store en mémoire par des
+  Server Actions et de l'ISR.
+- MapLibre + tuiles IGN ou OSM (le SVG est un placeholder).
+- Notifications email (Brevo ou Listmonk auto-hébergé), SMS (OVHcloud SMS).
+- Plausible auto-hébergé.
+- Détection des doublons de signalements (proximité géo + thématique).
+- Calendrier de réservation d'équipement (vue mois + sélecteur).
+- Audit RGAA AA exhaustif et publication de la déclaration.
+- Tests Vitest + Playwright en CI.
+- Radix UI pour les composants critiques (`Dialog`, `Tabs`, `Toast`,
+  `Switch`, `Popover`) — actuellement re-implémentés a minima.
 
 ## Accessibilité (RGAA AA — cf. CdC §3.3)
 

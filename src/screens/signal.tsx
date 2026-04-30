@@ -5,6 +5,7 @@ import {
   ArrowRight,
   Brush,
   Camera,
+  CircleAlert,
   Lightbulb,
   Menu,
   MapPin,
@@ -15,12 +16,15 @@ import {
   TreeDeciduous,
   Wrench,
 } from "lucide-react";
+import Link from "next/link";
 import { Surface } from "@/components/ui/surface";
 import { Section } from "@/components/ui/section";
 import { Chip } from "@/components/ui/chip";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
-import { TRIZAC_DATA, type SignalementEtat } from "@/lib/data";
+import { useStore } from "@/lib/store";
+import { useToast } from "@/components/ui/toast";
+import type { SignalementEtat } from "@/lib/data";
 
 const ETAT_LABEL: Record<SignalementEtat, string> = {
   signale: "Signalé",
@@ -60,6 +64,7 @@ function SignalListOrMap({
   setSub: (s: Sub) => void;
 }) {
   const isMap = sub === "map";
+  const { signalements } = useStore();
   return (
     <div>
       <PageHeader
@@ -107,55 +112,80 @@ function SignalListOrMap({
         </div>
       </div>
 
-      {isMap ? <SignalMap /> : <SignalList />}
+      {isMap ? (
+        <SignalMap />
+      ) : signalements.length === 0 ? (
+        <EmptyState />
+      ) : (
+        <Section dense>
+          {signalements.map((s) => {
+            const c = ETAT_COLOR[s.etat];
+            const Icon = ICON_BY_NAME[s.icon] ?? MapPin;
+            return (
+              <Link key={s.id} href={`/signalements/${s.id}`} className="contents">
+                <Surface as="button" className="w-full">
+                  <div className="flex gap-3">
+                    <div
+                      className="w-11 h-11 rounded flex items-center justify-center flex-shrink-0"
+                      style={{ backgroundColor: `${c}22`, color: c }}
+                    >
+                      <Icon size={20} strokeWidth={1.6} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-[14px] text-ink mb-1">
+                        {s.titre}
+                      </div>
+                      <div className="text-[11.5px] text-ink-muted">
+                        {s.loc} · {s.auteur} · {s.date}
+                      </div>
+                      <div className="flex gap-1.5 mt-2 flex-wrap">
+                        <Chip size="sm" color={c} prefixDot>
+                          {ETAT_LABEL[s.etat]}
+                        </Chip>
+                        <Chip size="sm">{s.type}</Chip>
+                      </div>
+                    </div>
+                  </div>
+                </Surface>
+              </Link>
+            );
+          })}
+        </Section>
+      )}
     </div>
   );
 }
 
-function SignalList() {
+function EmptyState() {
   return (
-    <Section dense>
-      {TRIZAC_DATA.signalements.map((s) => {
-        const c = ETAT_COLOR[s.etat];
-        const Icon = ICON_BY_NAME[s.icon] ?? MapPin;
-        return (
-          <Surface as="button" key={s.id} className="w-full">
-            <div className="flex gap-3">
-              <div
-                className="w-11 h-11 rounded flex items-center justify-center flex-shrink-0"
-                style={{ backgroundColor: `${c}22`, color: c }}
-              >
-                <Icon size={20} strokeWidth={1.6} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold text-[14px] text-ink mb-1">
-                  {s.titre}
-                </div>
-                <div className="text-[11.5px] text-ink-muted">
-                  {s.loc} · {s.auteur} · {s.date}
-                </div>
-                <div className="flex gap-1.5 mt-2 flex-wrap">
-                  <Chip size="sm" color={c} prefixDot>
-                    {ETAT_LABEL[s.etat]}
-                  </Chip>
-                  <Chip size="sm">{s.type}</Chip>
-                </div>
-              </div>
-            </div>
-          </Surface>
-        );
-      })}
-    </Section>
+    <div className="px-[18px] py-12 text-center">
+      <div className="w-12 h-12 rounded-pill bg-surface-alt flex items-center justify-center mx-auto mb-3 text-ink-muted">
+        <CircleAlert size={20} strokeWidth={1.6} />
+      </div>
+      <div className="font-semibold text-[14px] text-ink">
+        Aucun signalement pour le moment.
+      </div>
+      <div className="text-[12.5px] text-ink-muted mt-1">
+        Le bouton « + » en haut permet d'en créer un.
+      </div>
+    </div>
   );
 }
 
 function SignalMap() {
-  const items: { x: number; y: number; etat: SignalementEtat; Icon: typeof MapPin }[] = [
-    { x: 165, y: 200, etat: "en-cours", Icon: MapPin },
-    { x: 220, y: 80, etat: "pris-en-compte", Icon: Lightbulb },
-    { x: 120, y: 280, etat: "resolu", Icon: TreeDeciduous },
-    { x: 80, y: 340, etat: "signale", Icon: Trash2 },
-  ];
+  const { signalements } = useStore();
+  const items = signalements.slice(0, 6).map((s, i) => {
+    const positions = [
+      { x: 165, y: 200 },
+      { x: 220, y: 80 },
+      { x: 120, y: 280 },
+      { x: 80, y: 340 },
+      { x: 260, y: 200 },
+      { x: 100, y: 100 },
+    ];
+    const Icon = ICON_BY_NAME[s.icon] ?? MapPin;
+    return { ...positions[i], etat: s.etat, Icon };
+  });
   return (
     <div className="px-[18px]">
       <div
@@ -235,17 +265,39 @@ function SignalMap() {
 }
 
 const CATEGORIES = [
-  { id: "voirie", label: "Voirie", Icon: MapPin },
-  { id: "ecl", label: "Éclairage", Icon: Lightbulb },
-  { id: "verts", label: "Espaces verts", Icon: TreeDeciduous },
-  { id: "prop", label: "Propreté", Icon: Brush },
-  { id: "degr", label: "Dégradation", Icon: Wrench },
-  { id: "autre", label: "Autre", Icon: Tag },
+  { id: "voirie", label: "Voirie", iconKey: "MapPin", Icon: MapPin },
+  { id: "ecl", label: "Éclairage", iconKey: "Lightbulb", Icon: Lightbulb },
+  { id: "verts", label: "Espaces verts", iconKey: "TreeDeciduous", Icon: TreeDeciduous },
+  { id: "prop", label: "Propreté", iconKey: "Trash2", Icon: Brush },
+  { id: "degr", label: "Dégradation", iconKey: "MapPin", Icon: Wrench },
+  { id: "autre", label: "Autre", iconKey: "MapPin", Icon: Tag },
 ];
 
 function SignalNewScreen({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState<1 | 2>(1);
   const [cat, setCat] = useState<string | null>(null);
+  const [desc, setDesc] = useState(
+    "Un nid-de-poule s'est creusé devant le n°12, dangereux pour les vélos.",
+  );
+  const { addSignalement } = useStore();
+  const { show } = useToast();
+
+  const submit = () => {
+    if (!cat) return;
+    const c = CATEGORIES.find((x) => x.id === cat)!;
+    addSignalement({
+      titre: desc.split(".")[0].slice(0, 80) || `Signalement ${c.label}`,
+      type: c.label,
+      loc: "Rue du Lavoir",
+      icon: c.iconKey,
+    });
+    show({
+      tone: "success",
+      title: "Signalement envoyé",
+      desc: "Vous serez notifié·e à chaque changement d'état.",
+    });
+    onClose();
+  };
 
   return (
     <div>
@@ -288,9 +340,7 @@ function SignalNewScreen({ onClose }: { onClose: () => void }) {
             </div>
           </div>
           <div className="px-[18px] py-2">
-            <Section title="Lieu" dense>
-              <></>
-            </Section>
+            <div className="text-[12px] font-semibold text-ink-soft mb-1.5">Lieu</div>
             <Surface className="flex items-center gap-2.5">
               <MapPin size={18} strokeWidth={1.6} className="text-primary" />
               <div className="flex-1">
@@ -313,7 +363,7 @@ function SignalNewScreen({ onClose }: { onClose: () => void }) {
             <Button
               full
               size="lg"
-              onClick={() => setStep(2)}
+              onClick={() => (cat ? setStep(2) : show({ tone: "info", title: "Choisissez une catégorie." }))}
               icon={<ArrowRight size={18} strokeWidth={2} />}
             >
               Continuer
@@ -335,7 +385,8 @@ function SignalNewScreen({ onClose }: { onClose: () => void }) {
               <textarea
                 className="w-full min-h-[80px] p-3 bg-surface border border-line-soft rounded text-[14px] text-ink resize-none outline-none focus:border-primary"
                 placeholder="En une phrase, qu'avez-vous constaté ?"
-                defaultValue="Un nid-de-poule s'est creusé devant le n°12, dangereux pour les vélos."
+                value={desc}
+                onChange={(e) => setDesc(e.target.value)}
               />
             </div>
           </div>
@@ -347,7 +398,7 @@ function SignalNewScreen({ onClose }: { onClose: () => void }) {
               full
               size="lg"
               icon={<Send size={18} strokeWidth={2} />}
-              onClick={onClose}
+              onClick={submit}
             >
               Envoyer
             </Button>

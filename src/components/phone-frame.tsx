@@ -2,6 +2,8 @@
 // l'écran prend toute la place. Cf. README — la cible production
 // est une PWA mobile-first installable.
 
+import Link from "next/link";
+
 export function PhoneFrame({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen w-full bg-bg flex items-center justify-center md:p-8">
@@ -14,8 +16,31 @@ export function PhoneFrame({ children }: { children: React.ReactNode }) {
       >
         <div className="relative h-full overflow-y-auto pb-24 scrollbar-none">
           {children}
+          <FooterLinks />
         </div>
       </div>
     </div>
+  );
+}
+
+function FooterLinks() {
+  return (
+    <footer className="px-[18px] py-6 text-[11px] text-ink-muted flex flex-wrap gap-x-3 gap-y-1 justify-center border-t border-line-soft mt-6">
+      <Link href="/mentions-legales" className="hover:text-ink underline">
+        Mentions légales
+      </Link>
+      <Link href="/confidentialite" className="hover:text-ink underline">
+        Confidentialité
+      </Link>
+      <Link href="/accessibilite" className="hover:text-ink underline">
+        Accessibilité
+      </Link>
+      <Link href="/mes-donnees" className="hover:text-ink underline">
+        Mes données
+      </Link>
+      <Link href="/auth/login" className="hover:text-ink underline">
+        Se connecter
+      </Link>
+    </footer>
   );
 }

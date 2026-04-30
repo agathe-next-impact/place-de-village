@@ -6,6 +6,7 @@ import { Section } from "@/components/ui/section";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { TRIZAC_DATA } from "@/lib/data";
+import { useToast } from "@/components/ui/toast";
 
 const ICON_MAP: Record<string, typeof Building2> = {
   eq3: Wrench,
@@ -13,6 +14,7 @@ const ICON_MAP: Record<string, typeof Building2> = {
 };
 
 export function ReservScreen() {
+  const { show } = useToast();
   return (
     <div>
       <PageHeader subtitle="Pôle 6" title="Réserver un équipement" />
@@ -53,10 +55,18 @@ export function ReservScreen() {
                 </div>
                 <Button
                   size="sm"
-                  variant="primary"
+                  variant={reserved ? "ghost" : "primary"}
                   icon={<Calendar size={14} strokeWidth={1.6} />}
+                  disabled={reserved}
+                  onClick={() =>
+                    show({
+                      tone: "success",
+                      title: "Demande envoyée",
+                      desc: `${eq.nom} — en attente de validation par le référent municipal.`,
+                    })
+                  }
                 >
-                  Demander
+                  {reserved ? "Indisponible" : "Demander"}
                 </Button>
               </div>
             </Surface>

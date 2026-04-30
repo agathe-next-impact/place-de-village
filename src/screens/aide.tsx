@@ -8,11 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { PageHeader } from "@/components/ui/page-header";
 import { TRIZAC_DATA } from "@/lib/data";
+import { useToast } from "@/components/ui/toast";
 
 type Filter = "tout" | "demande" | "offre";
 
 export function AideScreen() {
   const [view, setView] = useState<Filter>("tout");
+  const { show } = useToast();
   const items =
     view === "tout"
       ? TRIZAC_DATA.entraide
@@ -90,6 +92,13 @@ export function AideScreen() {
                   size="sm"
                   variant="primary"
                   icon={<MessageSquare size={14} strokeWidth={1.6} />}
+                  onClick={() =>
+                    show({
+                      tone: "success",
+                      title: isDemande ? "Proposition d'aide envoyée" : "Demande de contact envoyée",
+                      desc: `${e.auteur} recevra votre message dans la messagerie interne.`,
+                    })
+                  }
                 >
                   {isDemande ? "Aider" : "Contacter"}
                 </Button>

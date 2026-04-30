@@ -1,0 +1,22 @@
+{
+  "name": "Trizac · Place du village",
+  "short_name": "Trizac",
+  "description": "Plateforme citoyenne municipale (signalements, agora, bénévolat, entraide, vie locale, réservation).",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f4f1ec",
+  "theme_color": "#1f6e7a",
+  "orientation": "portrait",
+  "lang": "fr",
+  "dir": "ltr",
+  "categories": ["government", "social", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
