@@ -18,6 +18,7 @@ import { Chip } from "@/components/ui/chip";
 import { TrizacMark } from "@/components/ui/trizac-mark";
 import {
   countMyUnread,
+  getCurrentUserPub,
   listAgenda,
   listAnnonces,
   listMissions,
@@ -33,14 +34,16 @@ const QUICK_ACTIONS = [
 ] as const;
 
 export async function HomeScreen() {
-  const [signalements, missions, propositions, agenda, annonces, unread] = await Promise.all([
+  const [signalements, missions, propositions, agenda, annonces, unread, me] = await Promise.all([
     listSignalements(),
     listMissions(),
     listPropositions(),
     listAgenda(),
     listAnnonces(),
     countMyUnread(),
+    getCurrentUserPub(),
   ]);
+  const firstName = me.name.split(" ")[0] ?? me.name;
 
   const ouverts = signalements.filter((s) => s.etat !== "resolu").length;
   const missionsOpen = missions.filter((m) => m.inscrits < m.besoin).length;
@@ -85,7 +88,7 @@ export async function HomeScreen() {
           </div>
         </div>
         <div className="text-[26px] font-bold leading-[1.15] tracking-title text-ink">
-          Bonjour Camille,
+          Bonjour {firstName},
           <br />
           <span className="text-primary">la place est ouverte.</span>
         </div>
