@@ -81,20 +81,10 @@ export function RoleSwitcher({
                   </li>
                 );
               })}
+              <li role="none" className="border-t border-line-soft mt-1 pt-1" />
             </>
           )}
-          <li role="none" className={demoMode ? "border-t border-line-soft mt-1 pt-1" : ""}>
-            <Link
-              href="/auth/login"
-              role="menuitem"
-              className="w-full text-left px-3 py-2 text-[13px] text-ink hover:bg-surface-alt flex items-center gap-2"
-              onClick={() => setOpen(false)}
-            >
-              <LogIn size={14} strokeWidth={1.6} />
-              Se connecter avec un mot de passe
-            </Link>
-          </li>
-          {authenticated && (
+          {authenticated ? (
             <li role="none">
               <button
                 role="menuitem"
@@ -106,7 +96,7 @@ export function RoleSwitcher({
                       await logout();
                       show({ tone: "info", title: "Déconnecté·e" });
                       setOpen(false);
-                      router.push("/");
+                      router.push("/auth/login");
                     } catch (err) {
                       show({ tone: "danger", title: "Erreur", desc: String(err instanceof Error ? err.message : err) });
                     }
@@ -117,6 +107,18 @@ export function RoleSwitcher({
                 <LogOut size={14} strokeWidth={1.6} />
                 Se déconnecter
               </button>
+            </li>
+          ) : (
+            <li role="none">
+              <Link
+                href="/auth/login"
+                role="menuitem"
+                className="w-full text-left px-3 py-2 text-[13px] text-ink hover:bg-surface-alt flex items-center gap-2"
+                onClick={() => setOpen(false)}
+              >
+                <LogIn size={14} strokeWidth={1.6} />
+                Se connecter
+              </Link>
             </li>
           )}
         </ul>
