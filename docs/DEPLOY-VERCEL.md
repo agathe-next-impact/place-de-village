@@ -156,27 +156,55 @@ Let's Encrypt provisionné automatiquement.
 
 ### Option A — Vraie production (recommandé)
 
-Crée un unique compte « maire » (admin), aucune donnée fictive :
+Crée un panel d'utilisateurs représentatif des 4 rôles supportés
+(maire, agent, referent, habitant) sur un domaine donné. Aucune
+donnée fonctionnelle (signalements, idées, missions…) n'est insérée.
+
+Comptes créés (9 au total) :
+
+| Email                              | Rôle      | Description                       |
+|------------------------------------|-----------|-----------------------------------|
+| `maire@<domaine>`                  | maire     | Maire — accès administrateur      |
+| `secretariat@<domaine>`            | maire     | Secrétariat général               |
+| `voirie@<domaine>`                 | agent     | Services techniques / voirie      |
+| `espaces-verts@<domaine>`          | agent     | Services techniques / espaces verts |
+| `comite-fetes@<domaine>`           | referent  | Comité des fêtes (associatif)     |
+| `ccas@<domaine>`                   | referent  | CCAS (référent social)            |
+| `habitant1@<domaine>`              | habitant  | Test habitant·e                   |
+| `habitant2@<domaine>`              | habitant  | Test habitant·e                   |
+| `habitant3@<domaine>`              | habitant  | Test habitant·e                   |
+
+Tous partagent le même mot de passe initial — à changer à la première
+connexion via `/moi`.
 
 ```powershell
 # PowerShell (Windows)
 vercel env pull .env.production.local --environment=production
-$env:SEED_ADMIN_EMAIL = "admin@votre-domaine.fr"
-$env:SEED_ADMIN_PASSWORD = "un-mot-de-passe-fort-min-8-car"
+$env:SEED_DOMAIN = "trizac.fr"
+$env:SEED_PASSWORD = "un-mot-de-passe-fort-min-8-car"
 npm run db:seed:minimal:prod
 ```
 
 ```bash
 # Bash (Linux/Mac/WSL/Git Bash)
 vercel env pull .env.production.local --environment=production
-SEED_ADMIN_EMAIL=admin@votre-domaine.fr \
-SEED_ADMIN_PASSWORD='un-mot-de-passe-fort-min-8-car' \
+SEED_DOMAIN=trizac.fr \
+SEED_PASSWORD='un-mot-de-passe-fort-min-8-car' \
   npm run db:seed:minimal:prod
 ```
 
-Idempotent : ré-exécutable sans casser le compte existant (upsert
-sur l'email). Connectez-vous ensuite sur `/auth/login`, changez le
-mot de passe, et invitez les habitants.
+Idempotent : ré-exécutable sans casser les comptes existants (upsert
+sur l'email).
+
+**Droits par rôle** :
+- `habitant` : lecture/écriture standard (signaler, proposer une idée,
+  s'inscrire à une mission, demander/offrir de l'aide, réserver, etc.)
+- `agent` : peut faire évoluer l'état des signalements, créer/gérer
+  des missions de bénévolat, envoyer des SMS de rappel
+- `referent` : tout `agent` + modération de contenu + propositions
+  agora + synthèse de discussions
+- `maire` : accès complet — tout `referent` + tableau de bord mairie
+  (`/mairie`), validation des réservations, journal des décisions
 
 ### Option B — Démo / staging
 
