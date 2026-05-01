@@ -73,8 +73,21 @@ export default async function Page({
 
       <Section dense>
         {filtered.length === 0 ? (
-          <div className="px-[18px] py-12 text-center text-ink-muted text-[13px]">
-            Aucune annonce. Le bouton « + » permet d'en publier une.
+          <div className="px-[18px] py-12 text-center">
+            <div className="text-ink-muted text-[13px] mb-3">
+              {view === "tout"
+                ? "Aucune annonce d'entraide pour le moment."
+                : view === "demande"
+                ? "Aucune demande active. "
+                : "Aucune offre active. "}
+            </div>
+            <Link
+              href="/aide/nouvelle"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded bg-primary text-white text-[13px] font-semibold no-underline min-h-[36px]"
+            >
+              <Plus size={14} strokeWidth={2} />
+              Publier une annonce
+            </Link>
           </div>
         ) : (
           filtered.map((e) => {

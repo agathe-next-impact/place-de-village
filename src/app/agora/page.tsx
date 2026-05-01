@@ -99,8 +99,17 @@ export default async function Page({
             </Surface>
           ))}
           {suggestions.length === 0 && (
-            <div className="px-[18px] py-12 text-center text-ink-muted text-[13px]">
-              Aucune idée pour le moment. Le bouton « + » permet d'en proposer une.
+            <div className="px-[18px] py-12 text-center">
+              <div className="text-ink-muted text-[13px] mb-3">
+                Aucune idée pour le moment.
+              </div>
+              <p className="text-[12px] text-ink-muted mb-4 max-w-xs mx-auto">
+                Avant qu'une idée devienne proposition, elle a besoin d'être qualifiée par d'autres habitants.
+                <Link href="/agora?view=discus" className="text-primary font-semibold underline ml-1 no-underline">
+                  Voir les discussions ouvertes
+                </Link>
+                .
+              </p>
             </div>
           )}
         </Section>

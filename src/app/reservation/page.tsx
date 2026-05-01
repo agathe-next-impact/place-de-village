@@ -16,7 +16,20 @@ export default async function Page() {
 
   return (
     <ScreenShell>
-      <PageHeader subtitle="Pôle 6" title="Réserver un équipement" />
+      <PageHeader
+        subtitle="Pôle 6"
+        title="Réserver un équipement"
+        action={
+          <Link href="/agenda" className="text-[12px] text-primary font-semibold underline">
+            Agenda
+          </Link>
+        }
+      />
+      {items.length === 0 && (
+        <div className="px-[18px] py-12 text-center text-ink-muted text-[13px]">
+          Aucun équipement disponible. Contactez la mairie pour plus d'informations.
+        </div>
+      )}
       <Section dense>
         {items.map((eq) => {
           const Icon = ICON_MAP[eq.id] ?? Building2;

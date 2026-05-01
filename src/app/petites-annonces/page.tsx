@@ -46,8 +46,16 @@ export default async function Page() {
 
       <Section dense>
         {items.length === 0 ? (
-          <div className="px-[18px] py-12 text-center text-ink-muted text-[13px]">
-            Aucune annonce active. Le bouton « + » permet d'en publier une.
+          <div className="px-[18px] py-12 text-center">
+            <div className="text-ink-muted text-[13px] mb-3">
+              Aucune annonce active.
+            </div>
+            <Link
+              href="/petites-annonces/nouvelle"
+              className="inline-flex items-center px-3.5 py-2 rounded bg-primary text-white text-[13px] font-semibold no-underline min-h-[36px]"
+            >
+              Publier la première annonce
+            </Link>
           </div>
         ) : (
           items.map((a) => (

@@ -86,7 +86,14 @@ export default async function Page({
             <CircleAlert size={20} strokeWidth={1.6} />
           </div>
           <div className="font-semibold text-[14px] text-ink">Aucun signalement pour le moment.</div>
-          <div className="text-[12.5px] text-ink-muted mt-1">Le bouton « + » en haut permet d'en créer un.</div>
+          <div className="text-[12.5px] text-ink-muted mt-1 mb-4">Soyez le premier à en faire un.</div>
+          <Link
+            href="/signaler"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded bg-primary text-white text-[13px] font-semibold no-underline min-h-[36px]"
+          >
+            <Plus size={14} strokeWidth={2} />
+            Nouveau signalement
+          </Link>
         </div>
       ) : (
         <Section dense>

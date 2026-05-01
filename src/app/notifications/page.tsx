@@ -26,6 +26,18 @@ export default async function Page() {
             <div className="text-[12.5px] text-ink-muted mt-1">
               Vous serez prévenu·e à chaque évolution importante.
             </div>
+            <div className="mt-4 flex flex-wrap gap-2 justify-center">
+              <Link
+                href="/mes-donnees"
+                className="text-[12px] text-primary font-semibold underline"
+              >
+                Préférences de notification
+              </Link>
+              <span className="text-ink-muted">·</span>
+              <Link href="/" className="text-[12px] text-primary font-semibold underline">
+                Retour à l'accueil
+              </Link>
+            </div>
           </div>
         ) : (
           items.map((n) => {

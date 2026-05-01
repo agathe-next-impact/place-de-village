@@ -29,14 +29,22 @@ export default async function Page({
         subtitle="Pôle 2 — Bénévolat communal"
         title="Donner un coup de main"
         action={
-          isRef ? (
+          <div className="flex items-center gap-3 text-[12px]">
+            {isRef && (
+              <Link
+                href="/moi/nouvelle-mission"
+                className="font-semibold text-primary underline"
+              >
+                + Nouvelle
+              </Link>
+            )}
             <Link
-              href="/moi/nouvelle-mission"
-              className="text-[12px] font-semibold text-primary underline"
+              href="/mes-donnees"
+              className="font-semibold text-ink-soft underline"
             >
-              + Nouvelle
+              Mes données
             </Link>
-          ) : null
+          </div>
         }
       />
 
@@ -93,10 +101,29 @@ export default async function Page({
       </div>
 
       {items.length === 0 ? (
-        <div className="px-[18px] py-12 text-center text-ink-muted text-[13px]">
-          {v === "mes"
-            ? "Vous n'êtes inscrit·e à aucune mission. Voyez l'onglet « Missions à pourvoir »."
-            : "Aucune mission ouverte pour l'instant."}
+        <div className="px-[18px] py-12 text-center">
+          <div className="text-ink-muted text-[13px] mb-3">
+            {v === "mes"
+              ? "Vous n'êtes inscrit·e à aucune mission."
+              : "Aucune mission ouverte pour l'instant."}
+          </div>
+          {v === "mes" ? (
+            <Link
+              href="/moi"
+              className="inline-flex items-center px-3.5 py-2 rounded bg-primary text-white text-[13px] font-semibold no-underline min-h-[36px]"
+            >
+              Voir les missions à pourvoir
+            </Link>
+          ) : (
+            <div className="flex flex-col items-center gap-2">
+              <Link href="/aide" className="text-[12px] text-primary font-semibold underline">
+                Découvrir l'entraide entre voisins
+              </Link>
+              <Link href="/agenda" className="text-[12px] text-primary font-semibold underline">
+                Consulter l'agenda communal
+              </Link>
+            </div>
+          )}
         </div>
       ) : (
         <Section dense>

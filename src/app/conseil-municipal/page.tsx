@@ -21,7 +21,16 @@ export default async function Page({
       <PageHeader
         subtitle="Pôle 5 — Vie locale"
         title="Conseil municipal"
-        action={<Link href="/agenda" className="text-[12px] text-primary font-semibold underline">Agenda</Link>}
+        action={
+          <div className="flex items-center gap-3 text-[12px]">
+            <Link href="/agora?view=propo" className="text-primary font-semibold underline">
+              Propositions
+            </Link>
+            <Link href="/agenda" className="text-primary font-semibold underline">
+              Agenda
+            </Link>
+          </div>
+        }
       />
 
       <form action="/conseil-municipal" method="get" className="px-[18px] pb-3.5">
@@ -41,8 +50,18 @@ export default async function Page({
 
       <Section dense>
         {items.length === 0 ? (
-          <div className="px-[18px] py-12 text-center text-ink-muted text-[13px]">
-            Aucun compte rendu ne correspond à votre recherche.
+          <div className="px-[18px] py-12 text-center">
+            <div className="text-ink-muted text-[13px] mb-3">
+              Aucun compte rendu ne correspond à votre recherche.
+            </div>
+            {q && (
+              <Link
+                href="/conseil-municipal"
+                className="text-[12px] text-primary font-semibold underline"
+              >
+                Voir tous les comptes rendus
+              </Link>
+            )}
           </div>
         ) : (
           items.map((c) => (

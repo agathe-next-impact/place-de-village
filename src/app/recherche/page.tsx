@@ -90,14 +90,36 @@ export default async function Page({
       )}
 
       {!q ? (
-        <div className="px-[18px] py-12 text-center text-ink-muted text-[13px]">
-          Tapez quelques mots pour rechercher dans toutes les contributions
-          citoyennes, propositions, comptes rendus de conseil municipal,
-          annonces et signalements.
+        <div className="px-[18px] py-12 text-center">
+          <div className="text-ink-muted text-[13px] mb-4">
+            Tapez quelques mots pour rechercher dans toutes les contributions
+            citoyennes, propositions, comptes rendus de conseil municipal,
+            annonces et signalements.
+          </div>
+          <div className="text-[12px] text-ink-muted">Suggestions :</div>
+          <div className="mt-2 flex flex-wrap gap-2 justify-center">
+            {["marché", "vélo", "école", "voirie"].map((s) => (
+              <Link
+                key={s}
+                href={`/recherche?q=${encodeURIComponent(s)}`}
+                className="px-3 py-1.5 rounded-pill bg-surface border border-line-soft text-[12px] text-ink no-underline"
+              >
+                {s}
+              </Link>
+            ))}
+          </div>
         </div>
       ) : hits.length === 0 ? (
-        <div className="px-[18px] py-12 text-center text-ink-muted text-[13px]">
-          Aucun résultat pour <strong className="text-ink">« {q} »</strong>.
+        <div className="px-[18px] py-12 text-center">
+          <div className="text-ink-muted text-[13px] mb-3">
+            Aucun résultat pour <strong className="text-ink">« {q} »</strong>.
+          </div>
+          <Link
+            href="/recherche"
+            className="text-[12px] text-primary font-semibold underline"
+          >
+            Effacer la recherche
+          </Link>
         </div>
       ) : (
         <Section dense>

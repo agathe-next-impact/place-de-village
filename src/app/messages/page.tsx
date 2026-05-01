@@ -16,8 +16,16 @@ export default async function Page() {
         action={<Link href="/aide" className="text-[12px] text-primary font-semibold underline">Aide</Link>}
       />
       {conv.length === 0 ? (
-        <div className="px-[18px] py-12 text-center text-ink-muted text-[13px]">
-          Vous n'avez pas encore de conversation. Ouvrez-en une depuis l'onglet « Entraide ».
+        <div className="px-[18px] py-12 text-center">
+          <div className="text-ink-muted text-[13px] mb-3">
+            Vous n'avez pas encore de conversation.
+          </div>
+          <Link
+            href="/aide"
+            className="inline-flex items-center px-3.5 py-2 rounded bg-primary text-white text-[13px] font-semibold no-underline min-h-[36px]"
+          >
+            Voir les annonces d'entraide
+          </Link>
         </div>
       ) : (
         <Section dense>
