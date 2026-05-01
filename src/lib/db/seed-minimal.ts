@@ -1,16 +1,21 @@
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import path from "node:path";
+import { randomBytes } from "node:crypto";
+import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { db, schema } from "./client";
 
 /**
  * Seed minimal pour mise en production : applique les migrations puis
- * insère un unique compte « maire » (admin de la mairie). Aucune donnée
- * de démo (signalements, idées, missions, etc.) n'est créée — la base
- * est laissée vide en attente des contributions réelles des habitants.
+ * insère/met à jour un unique compte « maire » (admin de la mairie).
+ * Aucune donnée de démo (signalements, idées, missions, etc.) n'est
+ * créée — la base est laissée vide en attente des contributions
+ * réelles des habitants.
  *
- * Idempotent : ré-exécutable sans casser un compte existant
- * (onConflictDoUpdate sur l'email).
+ * Idempotent : ré-exécutable sans casser un compte existant. Si un
+ * user avec le même email existe déjà (peu importe son id), on met à
+ * jour son mot de passe + rôle. Sinon on insère un nouveau compte
+ * avec un id aléatoire.
  *
  * Variables d'environnement requises :
  *   SEED_ADMIN_EMAIL     — email de l'administrateur mairie
@@ -41,24 +46,34 @@ async function main() {
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
+  const existing = await db
+    .select()
+    .from(schema.users)
+    .where(eq(schema.users.email, email))
+    .then((r) => r[0]);
 
-  await db
-    .insert(schema.users)
-    .values({
-      id: "maire",
+  if (existing) {
+    await db
+      .update(schema.users)
+      .set({ passwordHash, name, role: "maire", emailVerifiedAt: new Date() })
+      .where(eq(schema.users.email, email));
+    console.log(`✓ Compte mis à jour`);
+    console.log(`  email: ${email}`);
+    console.log(`  id   : ${existing.id} (existant)`);
+  } else {
+    const id = `admin-${randomBytes(8).toString("hex")}`;
+    await db.insert(schema.users).values({
+      id,
       email,
       name,
       role: "maire",
       passwordHash,
       emailVerifiedAt: new Date(),
-    })
-    .onConflictDoUpdate({
-      target: schema.users.email,
-      set: { passwordHash, name, role: "maire", emailVerifiedAt: new Date() },
     });
-
-  console.log(`✓ Seed minimal effectué`);
-  console.log(`  email: ${email}`);
+    console.log(`✓ Compte créé`);
+    console.log(`  email: ${email}`);
+    console.log(`  id   : ${id}`);
+  }
   console.log(`  rôle : maire`);
   console.log(`  → Connexion : ${process.env.PUBLIC_BASE_URL ?? "http://localhost:3000"}/auth/login`);
   process.exit(0);
@@ -68,3 +83,4 @@ main().catch((err) => {
   console.error(err);
   process.exit(1);
 });
+
