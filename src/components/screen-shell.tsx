@@ -2,19 +2,14 @@ import { PhoneFrame } from "@/components/phone-frame";
 import { TabBar } from "@/components/ui/tab-bar";
 
 export async function ScreenShell({ children }: { children: React.ReactNode }) {
-  // Le wrapper flex-column avec min-h-screen + flex-1 sur le contenu
-  // garantit que la TabBar (sticky bottom-0) est poussée au bas du
-  // viewport même sur les pages courtes. Sur les pages longues, le
-  // sticky positioning prend le relais pour la maintenir collée au
-  // bas pendant le scroll.
+  // TabBar utilise position: fixed pour s'ancrer au bas du viewport
+  // de façon fiable sur mobile (où aucun container n'a d'overflow-auto).
+  // Le pb-24 sur le scroll container de PhoneFrame réserve l'espace
+  // pour qu'elle ne masque pas le contenu en bas de page.
   return (
     <PhoneFrame>
-      <div className="flex flex-col min-h-screen md:min-h-[calc(100vh-4rem)]">
-        <div id="main-content" className="flex-1">
-          {children}
-        </div>
-        <TabBar />
-      </div>
+      <div id="main-content">{children}</div>
+      <TabBar />
     </PhoneFrame>
   );
 }

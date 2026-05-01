@@ -35,7 +35,7 @@ export function TabBar() {
   return (
     <nav
       aria-label="Navigation principale"
-      className="sticky bottom-0 left-0 right-0 flex bg-surface border-t border-line-soft pt-2 pb-7 z-30"
+      className="fixed bottom-0 inset-x-0 mx-auto w-full max-w-[420px] flex bg-surface border-t border-line-soft pt-2 pb-7 z-30"
     >
       {TABS.map((tab) => {
         const isActive = tab.id === active;
