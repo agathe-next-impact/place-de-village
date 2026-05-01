@@ -152,19 +152,56 @@ Vercel donne un enregistrement DNS à créer chez votre registrar
 (CNAME `cname.vercel-dns.com` ou A vers une IP Vercel). Certificat
 Let's Encrypt provisionné automatiquement.
 
-## 10. Seed initial (démo)
+## 10. Seed initial — deux options
 
-Une fois la DB Postgres connectée et migrée, peupler les données
-démo (15 utilisateurs + signalements + idées + missions + …) :
+### Option A — Vraie production (recommandé)
 
-```bash
-# En local, en pointant sur la DB Vercel
-vercel env pull .env.production.local
-DATABASE_URL=$POSTGRES_URL npm run db:seed
+Crée un unique compte « maire » (admin), aucune donnée fictive :
+
+```powershell
+# PowerShell (Windows)
+vercel env pull .env.production.local --environment=production
+$env:SEED_ADMIN_EMAIL = "admin@votre-domaine.fr"
+$env:SEED_ADMIN_PASSWORD = "un-mot-de-passe-fort-min-8-car"
+npm run db:seed:minimal:prod
 ```
 
-À faire une seule fois ; à NE PAS exécuter en production avec de
-vraies données — c'est destructif (idempotent par TRUNCATE).
+```bash
+# Bash (Linux/Mac/WSL/Git Bash)
+vercel env pull .env.production.local --environment=production
+SEED_ADMIN_EMAIL=admin@votre-domaine.fr \
+SEED_ADMIN_PASSWORD='un-mot-de-passe-fort-min-8-car' \
+  npm run db:seed:minimal:prod
+```
+
+Idempotent : ré-exécutable sans casser le compte existant (upsert
+sur l'email). Connectez-vous ensuite sur `/auth/login`, changez le
+mot de passe, et invitez les habitants.
+
+### Option B — Démo / staging
+
+Peuple les données fictives (15 utilisateurs, signalements, idées,
+missions, etc.) :
+
+```bash
+vercel env pull .env.production.local --environment=preview
+npx tsx --env-file=.env.production.local src/lib/db/seed.ts
+```
+
+⚠️ **Destructif** (TRUNCATE de toutes les tables). À NE PAS lancer
+sur une base contenant de vraies données.
+
+### Mode démo — variable `DEMO_MODE`
+
+Pour activer le RoleSwitcher (impersonation sans mot de passe) et
+la navigation sans login forcé, ajouter dans Vercel → Settings →
+Environment Variables (**Preview uniquement**) :
+
+```
+DEMO_MODE=true
+```
+
+⚠️ **NE JAMAIS** activer en Production : bypass l'authentification.
 
 ## 11. Vérifier post-déploiement
 

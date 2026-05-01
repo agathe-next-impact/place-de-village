@@ -13,10 +13,12 @@ export function RoleSwitcher({
   profiles,
   currentId,
   authenticated,
+  demoMode = false,
 }: {
   profiles: Profile[];
   currentId: string;
   authenticated: boolean;
+  demoMode?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
@@ -35,7 +37,7 @@ export function RoleSwitcher({
       >
         <Users size={14} strokeWidth={1.6} />
         {current?.name ?? "Profil"}
-        <span className="text-ink-muted">· {authenticated ? "session" : "démo"}</span>
+        {demoMode && <span className="text-ink-muted">· {authenticated ? "session" : "démo"}</span>}
       </button>
       {open && (
         <ul
@@ -43,41 +45,45 @@ export function RoleSwitcher({
           aria-label="Profils"
           className="absolute right-0 top-full mt-1 z-40 min-w-[260px] bg-surface border border-line-soft rounded-lg shadow-fab-lg py-1 max-h-[60vh] overflow-y-auto"
         >
-          <li className="px-3 py-1.5 text-[10.5px] font-semibold uppercase tracking-eyebrow text-ink-muted border-b border-line-soft">
-            Démo · changer de profil
-          </li>
-          {profiles.map((p) => {
-            const active = p.id === currentId;
-            return (
-              <li key={p.id} role="none">
-                <button
-                  role="menuitemradio"
-                  aria-checked={active}
-                  type="button"
-                  disabled={pending}
-                  onClick={() =>
-                    start(async () => {
-                      try {
-                        await switchUser(p.id);
-                        show({ tone: "info", title: "Profil changé", desc: `${p.name} (${p.role})` });
-                        setOpen(false);
-                      } catch (err) {
-                        show({ tone: "danger", title: "Erreur", desc: String(err instanceof Error ? err.message : err) });
-                      }
-                    })
-                  }
-                  className={[
-                    "w-full text-left px-3 py-2 text-[13px] flex items-center justify-between gap-2",
-                    active ? "bg-primary/10 text-primary font-semibold" : "text-ink hover:bg-surface-alt",
-                  ].join(" ")}
-                >
-                  <span>{p.name}</span>
-                  <span className="text-[10.5px] uppercase tracking-eyebrow text-ink-muted">{p.role}</span>
-                </button>
+          {demoMode && (
+            <>
+              <li className="px-3 py-1.5 text-[10.5px] font-semibold uppercase tracking-eyebrow text-ink-muted border-b border-line-soft">
+                Démo · changer de profil
               </li>
-            );
-          })}
-          <li role="none" className="border-t border-line-soft mt-1 pt-1">
+              {profiles.map((p) => {
+                const active = p.id === currentId;
+                return (
+                  <li key={p.id} role="none">
+                    <button
+                      role="menuitemradio"
+                      aria-checked={active}
+                      type="button"
+                      disabled={pending}
+                      onClick={() =>
+                        start(async () => {
+                          try {
+                            await switchUser(p.id);
+                            show({ tone: "info", title: "Profil changé", desc: `${p.name} (${p.role})` });
+                            setOpen(false);
+                          } catch (err) {
+                            show({ tone: "danger", title: "Erreur", desc: String(err instanceof Error ? err.message : err) });
+                          }
+                        })
+                      }
+                      className={[
+                        "w-full text-left px-3 py-2 text-[13px] flex items-center justify-between gap-2",
+                        active ? "bg-primary/10 text-primary font-semibold" : "text-ink hover:bg-surface-alt",
+                      ].join(" ")}
+                    >
+                      <span>{p.name}</span>
+                      <span className="text-[10.5px] uppercase tracking-eyebrow text-ink-muted">{p.role}</span>
+                    </button>
+                  </li>
+                );
+              })}
+            </>
+          )}
+          <li role="none" className={demoMode ? "border-t border-line-soft mt-1 pt-1" : ""}>
             <Link
               href="/auth/login"
               role="menuitem"

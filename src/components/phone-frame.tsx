@@ -7,9 +7,11 @@ import { listAllUsers, getCurrentUserPub } from "@/lib/queries";
 import { isAuthenticated } from "@/lib/auth";
 import { RoleSwitcher } from "@/components/interactive/role-switcher";
 
+const DEMO_MODE = process.env.DEMO_MODE === "true";
+
 export async function PhoneFrame({ children }: { children: React.ReactNode }) {
   const [users, me, authenticated] = await Promise.all([
-    listAllUsers(),
+    DEMO_MODE ? listAllUsers() : Promise.resolve([]),
     getCurrentUserPub(),
     isAuthenticated(),
   ]);
@@ -20,6 +22,7 @@ export async function PhoneFrame({ children }: { children: React.ReactNode }) {
           profiles={users.map((u) => ({ id: u.id, name: u.name, role: u.role }))}
           currentId={me.id}
           authenticated={authenticated}
+          demoMode={DEMO_MODE}
         />
       </div>
       <div

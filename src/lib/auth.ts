@@ -1,5 +1,6 @@
 import "server-only";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { randomBytes } from "node:crypto";
 import { and, eq, gt } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -55,13 +56,18 @@ export async function destroyCurrentSession() {
 }
 
 /**
- * Lit la session côté serveur. Renouvelle `lastSeenAt`. Retourne `null`
- * si pas de session valide. Pour les pages publiques, on tombe en démo
- * sur l'utilisateur `u1` afin que la navigation fonctionne sans login.
+ * Lit la session côté serveur. Renouvelle `lastSeenAt`. En production
+ * (DEMO_MODE !== "true"), redirige vers `/auth/login` si pas de session
+ * valide — le middleware filtre normalement déjà ces cas mais on
+ * sécurise en double.
+ *
+ * En mode démo, fallback sur l'utilisateur `u1` (Camille) pour que la
+ * navigation fonctionne sans login.
  */
 export async function getCurrentUser() {
   const c = await cookies();
   const sid = c.get(SESSION_COOKIE)?.value;
+  const demo = process.env.DEMO_MODE === "true";
   if (sid) {
     const sess = await db
       .select()
@@ -69,22 +75,19 @@ export async function getCurrentUser() {
       .where(and(eq(schema.sessions.id, sid), gt(schema.sessions.expiresAt, new Date())))
       .then(r => r[0]);
     if (sess) {
-      // sliding window — last seen
       await db.update(schema.sessions)
         .set({ lastSeenAt: new Date() })
-        .where(eq(schema.sessions.id, sid))
-        ;
+        .where(eq(schema.sessions.id, sid));
       const u = await db.select().from(schema.users).where(eq(schema.users.id, sess.userId)).then(r => r[0]);
       if (u) return u;
     } else {
-      // Cookie présent mais session invalide → clear
       c.delete(SESSION_COOKIE);
     }
   }
-  // Démo : profil par défaut. À retirer en production.
+  if (!demo) redirect("/auth/login");
+  // Mode démo uniquement : profil par défaut.
   const fallback = await db.select().from(schema.users).where(eq(schema.users.id, "u1")).then(r => r[0]);
   if (fallback) return fallback;
-  // DB non seedée (prod fraîchement migrée) — premier user disponible, sinon stub.
   const any = await db.select().from(schema.users).limit(1).then(r => r[0]);
   if (any) return any;
   throw new Error("Aucun utilisateur en base — exécuter `npm run db:seed`.");

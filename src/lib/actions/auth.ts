@@ -115,11 +115,14 @@ export async function logout() {
 
 // ─── Démo : changer de profil ─────────────────────────────────────────
 /**
- * Switch instantané vers un autre utilisateur seedé. Pour la démo
- * uniquement — bypass volontaire de la vérification de mot de passe.
- * À supprimer en production ou conditionner à NODE_ENV === 'development'.
+ * Switch instantané vers un autre utilisateur seedé. Bypass volontaire
+ * de la vérification de mot de passe. Activé uniquement quand
+ * `DEMO_MODE=true` — désactivé par défaut en production.
  */
 export async function switchUser(userId: string) {
+  if (process.env.DEMO_MODE !== "true") {
+    throw new Error("Mode démo désactivé.");
+  }
   const u = await db.select().from(schema.users).where(eq(schema.users.id, userId)).then(r => r[0]);
   if (!u) throw new Error("Utilisateur introuvable.");
   await destroyCurrentSession();

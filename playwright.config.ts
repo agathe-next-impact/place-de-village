@@ -40,6 +40,9 @@ export default defineConfig({
       NODE_ENV: "production",
       PUBLIC_BASE_URL: BASE_URL,
       DATABASE_URL: process.env.DATABASE_URL ?? "postgres://trizac:trizac@localhost:5432/trizac",
+      // Tests e2e en mode démo : permet la navigation sans login forcé
+      // sur toutes les routes (smoke test) et l'usage du RoleSwitcher.
+      DEMO_MODE: "true",
     },
   },
 });
