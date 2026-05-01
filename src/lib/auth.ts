@@ -82,7 +82,12 @@ export async function getCurrentUser() {
     }
   }
   // Démo : profil par défaut. À retirer en production.
-  return await db.select().from(schema.users).where(eq(schema.users.id, "u1")).then(r => r[0])!;
+  const fallback = await db.select().from(schema.users).where(eq(schema.users.id, "u1")).then(r => r[0]);
+  if (fallback) return fallback;
+  // DB non seedée (prod fraîchement migrée) — premier user disponible, sinon stub.
+  const any = await db.select().from(schema.users).limit(1).then(r => r[0]);
+  if (any) return any;
+  throw new Error("Aucun utilisateur en base — exécuter `npm run db:seed`.");
 }
 
 export async function getCurrentSession() {
