@@ -13,6 +13,7 @@ const PUBLIC_PREFIXES = [
   "/auth/",
   "/api/auth/",
   "/api/cron/",
+  "/api/debug/",
   "/mentions-legales",
   "/confidentialite",
   "/accessibilite",
